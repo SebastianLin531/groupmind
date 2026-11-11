@@ -7,7 +7,7 @@
 Built at **c0mpiled-18: YC Startup School Hackathon, Taipei Edition** (11 November 2026).
 
 - Live demo: https://groupmind-tau.vercel.app
-- Demo video: _to be added_
+- Demo video: https://youtu.be/lsknEaDCyQE
 - YC RFS track: **Multiplayer AI**
 
 ## Why
