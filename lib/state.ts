@@ -85,6 +85,51 @@ export const INITIAL_TASKS: Task[] = [
   },
 ];
 
+/** One student's own week. Mock data. Private to that student in the UI. */
+export interface WeekPlan {
+  commitments: string[];
+  /** Hours the student has free for team work this week. */
+  freeHours: number;
+  /** What the student could choose to tell the team. Prefilled, editable. */
+  shareableReason: string;
+}
+
+export const WEEK_PLANS: Record<MemberId, WeekPlan> = {
+  alex: {
+    commitments: ["Economics midterm (Tue)", "Marketing midterm (Thu)"],
+    freeHours: 6,
+    shareableReason: "I have two exams this week and can't take on more work.",
+  },
+  bella: {
+    commitments: [
+      "Statistics midterm (Wed)",
+      "Accounting midterm (Fri)",
+      "Part-time job (8h)",
+    ],
+    freeHours: 5,
+    shareableReason: "I have two exams this week and can't take on more work.",
+  },
+  chris: {
+    commitments: ["Design studio review (Mon)"],
+    freeHours: 8,
+    shareableReason: "My week is already full with the integration work.",
+  },
+  dana: {
+    commitments: ["Club event (Sat)"],
+    freeHours: 10,
+    shareableReason:
+      "I have some room this week, but I want to agree on the scope first.",
+  },
+};
+
+/** Estimated hours each task needs this week. Mock data. */
+export const TASK_HOURS: Record<string, number> = {
+  "task-market": 6,
+  "task-finance": 7,
+  "task-slides": 12,
+  "task-product": 6,
+};
+
 export const DEFAULT_ISSUE_TEXT =
   "I'm spending too much time fixing other people's work. I don't think our workload is fair.";
 

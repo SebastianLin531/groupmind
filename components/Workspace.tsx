@@ -8,6 +8,8 @@ import {
   COURSE_CONTEXT,
   SHOW_COURSE_SETUP,
   STORAGE_KEY,
+  TASK_HOURS,
+  WEEK_PLANS,
   contextLabel,
   SUPPORT_STATUS_LINE,
   TEAM_NAME,
@@ -336,6 +338,7 @@ function TeamView({
           </p>
         </section>
       )}
+      <MyWeek tasks={state.tasks} currentMember={currentMember} />
       <TaskBoard tasks={state.tasks} currentMember={currentMember} />
       {state.issue ? (
         <>
@@ -454,7 +457,9 @@ function ProposalCard({
   const isAffected = needsConsent.includes(currentMember);
   const myResponse = proposal.responses[currentMember];
   const [declining, setDeclining] = useState(false);
-  const [reason, setReason] = useState(DEFAULT_DECLINE_REASON);
+  const [reason, setReason] = useState(
+    WEEK_PLANS[currentMember]?.shareableReason ?? DEFAULT_DECLINE_REASON,
+  );
 
   return (
     <section
@@ -627,7 +632,8 @@ function ProposalCard({
             htmlFor="decline-reason"
             className="text-sm font-medium text-slate-900"
           >
-            What makes this hard for you? Your team will see this.
+            What makes this hard for you? Your team will see only what you write
+            here, not your calendar.
           </label>
           <textarea
             id="decline-reason"
@@ -654,6 +660,97 @@ function ProposalCard({
           </div>
         </form>
       )}
+    </section>
+  );
+}
+
+/** The current student's own week. Teammates and the teacher never see this panel. */
+function MyWeek({
+  tasks,
+  currentMember,
+}: {
+  tasks: Task[];
+  currentMember: MemberId;
+}) {
+  const plan = WEEK_PLANS[currentMember];
+  const myTasks = tasks.filter((task) => task.ownerId === currentMember);
+  const neededHours = myTasks.reduce(
+    (sum, task) => sum + (TASK_HOURS[task.id] ?? 0),
+    0,
+  );
+  const over = neededHours - plan.freeHours;
+  const percent = Math.min(
+    100,
+    Math.round((neededHours / Math.max(plan.freeHours, 1)) * 100),
+  );
+
+  return (
+    <section
+      aria-labelledby="week-heading"
+      className="rounded-lg border border-slate-200 bg-white p-4"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 id="week-heading" className="text-lg font-semibold text-slate-900">
+          My week
+        </h2>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+          Private to {memberName(currentMember)}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Other commitments
+          </h3>
+          <ul className="mt-1 flex flex-col gap-1">
+            {plan.commitments.map((commitment) => (
+              <li key={commitment} className="text-sm text-slate-800">
+                {commitment}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Team work this week
+          </h3>
+          <p className="mt-1 text-sm text-slate-800">
+            <span className="font-semibold tabular-nums">{neededHours}h</span>{" "}
+            needed for my tasks,{" "}
+            <span className="font-semibold tabular-nums">
+              {plan.freeHours}h
+            </span>{" "}
+            free
+          </p>
+          <div
+            role="img"
+            aria-label={`${neededHours} of ${plan.freeHours} free hours used`}
+            className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200"
+          >
+            <div
+              className={
+                over > 0 ? "h-full bg-rose-500" : "h-full bg-emerald-500"
+              }
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+          <p
+            className={
+              over > 0
+                ? "mt-2 text-sm font-medium text-rose-800"
+                : "mt-2 text-sm font-medium text-emerald-800"
+            }
+          >
+            {over > 0
+              ? `Over by ${over}h this week`
+              : `Fits, with ${-over}h to spare`}
+          </p>
+        </div>
+      </div>
+      <p className="mt-3 text-xs text-slate-500">
+        Your teammates and your teacher do not see this. When you answer a
+        proposal, you choose what to share. Hours are estimates from mock data.
+      </p>
     </section>
   );
 }

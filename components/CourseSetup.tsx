@@ -13,7 +13,7 @@ import { COURSE_CONTEXT, contextLabel } from "@/lib/state";
 import type { Action } from "@/lib/state";
 import type { SetupState } from "@/lib/types";
 
-const STEPS = ["Course brief", "Grouping options", "Student survey", "Teams"];
+const STEPS = ["Create course", "Grouping options", "Student survey", "Teams"];
 const STEP_OF_STAGE: Record<SetupState["stage"], number> = {
   brief: 0,
   options: 1,
@@ -66,6 +66,7 @@ export default function CourseSetup({
   dispatch: (action: Action) => void;
 }) {
   const [syllabus, setSyllabus] = useState(setup.syllabus);
+  const [courseName, setCourseName] = useState("Entrepreneurship Practice");
   const [loading, setLoading] = useState(false);
   const step = STEP_OF_STAGE[setup.stage];
   const strategy = setup.strategyId ? getStrategy(setup.strategyId) : null;
@@ -126,6 +127,29 @@ export default function CourseSetup({
 
       {setup.stage === "brief" && (
         <div className="mt-5 flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+            <div>
+              <label
+                htmlFor="course-name"
+                className="text-sm font-semibold text-slate-900"
+              >
+                Course name
+              </label>
+              <input
+                id="course-name"
+                type="text"
+                value={courseName}
+                onChange={(event) => setCourseName(event.target.value)}
+                className="mt-2 w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Class</p>
+              <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-sm text-slate-800">
+                12 students, teams of 4 (simulated roster)
+              </p>
+            </div>
+          </div>
           <div>
             <label
               htmlFor="syllabus"
