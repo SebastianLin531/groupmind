@@ -1,7 +1,7 @@
 // All app state lives here: mock data, initial state, and the reducer.
 // State is kept in the browser only (React state + localStorage).
 
-import type { AppState, Member, MemberId, RoleId, Task } from "./types";
+import type { AppState, Member, MemberId, Proposal, RoleId, Task } from "./types";
 
 export const MEMBERS: Member[] = [
   { id: "alex", name: "Alex", focus: "Market research" },
@@ -69,6 +69,7 @@ export type Action =
   | { type: "hydrate"; state: AppState }
   | { type: "switch_role"; role: RoleId }
   | { type: "raise_issue"; raisedBy: MemberId; text: string }
+  | { type: "set_proposal"; proposal: Proposal }
   | { type: "reset" };
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -82,6 +83,10 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         issue: { raisedBy: action.raisedBy, text: action.text },
       };
+    case "set_proposal":
+      // Ignore a late AI answer after the demo was reset.
+      if (!state.issue) return state;
+      return { ...state, proposal: action.proposal };
     case "reset":
       return createInitialState();
     default:
