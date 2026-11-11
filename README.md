@@ -1,6 +1,8 @@
 # GroupMind
 
-An AI facilitator for student teams, with the teacher in the loop.
+**An AI-powered collaborative learning platform.**
+
+> AI should help students learn how to collaborate, not just help them finish assignments.
 
 Built at **c0mpiled-18: YC Startup School Hackathon, Taipei Edition** (11 November 2026).
 
@@ -8,92 +10,106 @@ Built at **c0mpiled-18: YC Startup School Hackathon, Taipei Edition** (11 Novemb
 - Demo video: _to be added_
 - YC RFS track: **Multiplayer AI**
 
-## Problem
+## Why
 
-Group projects are supposed to teach collaboration. In practice, the collaboration process is invisible to the teacher and unspeakable for the students. One student ends up fixing everyone's work, nobody says anything, and the teacher finds out at the end of the semester, when nothing can be improved.
+Generative AI can now do much of the knowledge work in a group assignment. So the point of group work is no longer splitting up the tasks. It is what students learn by working together: saying what they need, understanding each other's limits, negotiating, handling conflict, deciding together, and reflecting on how the team works.
 
-## Solution
+Today that process is invisible to the teacher and hard for students to talk about. One student ends up fixing everyone's work, nobody says anything, and the teacher finds out at the end of the semester.
 
-GroupMind follows a course from setup to teamwork. The teacher sets the learning goals once, and those goals travel with every team: into how teams are formed, into how students negotiate their work, and back to the teacher when a team gets stuck.
+GroupMind starts in the university classroom. It helps teachers design collaborative learning, and gives students structure for working problems out themselves. The AI is not a judge, a monitor, or a manager who decides for students. It provides collaboration scaffolding.
 
-- The AI structures the negotiation. It does not decide for the students.
-- Students decide. Nobody's work changes without their own consent.
-- The teacher steps in only when a team asks, and sees only what the team shares.
+## Three phases
 
-## Vision
+**Phase 1 · Before class: teacher design and team formation** (built, with simulated data)
 
-GroupMind's long-term direction is a collaboration network of personal AI agents. Each person has their own agent for their tasks and time. When people need to work together, their agents exchange a limited, authorized set of information, negotiate, and bring the result back to each person to approve.
+The teacher sets learning goals and collaboration rules, gets AI-listed grouping options with trade-offs and evidence strength, chooses one, and a fixed algorithm forms the teams. Grouping is not the innovation. The point is that the teacher's goals and rules become shared context for everything that follows.
 
-Tonight's prototype is one layer of that: **the decision-making layer**. An AI proposes, the people affected consent, and the shared tasks update. The agent network itself is not built.
+**Phase 2 · During the project: AI-supported teamwork** (built, the core of this prototype)
 
-### Built tonight
+Students share a task board. When something is not working, the AI helps a student raise it as their own perspective, proposes concrete changes grounded in the teacher's goals, asks every affected member to consent or decline, revises once around the reasons given, and helps the team ask the teacher for guidance when it cannot agree.
 
-- Shared task board with five simulated roles
-- AI proposal from a raised concern, with structured output validated by the program
-- Consent from every affected member, with a reason required to decline
-- One AI revision of a declined proposal, based on the reasons given
-- Shared task board update after everyone affected consents
-- Teacher support request with a name-free summary, and one piece of teacher guidance
-- Course setup: AI-listed grouping strategies and a seeded grouping algorithm on simulated students
+**Phase 3 · Future: Personal Academic Agent Network** (not built)
 
-### Not built
-
-- Personal AI agents, or any agent-to-agent communication
-- Multi-agent orchestration: every AI step here is a single model call
-- Persistent memory across sessions
-- Real-time sync between devices, accounts, and access control
-- Calendar or task-tool integration
-- Course progress tracking
+Each student has a personal agent for their courses, deadlines, and study plan. With the student's authorization, agents exchange limited information and coordinate time and work across teams. Nothing takes effect without the person's approval. The "My week" panel in this prototype is a static illustration of the kind of private information such an agent would hold. It is not an agent.
 
 ## Demo flow
 
-**Before the project: the teacher sets up the course**
+**Teacher**
 
-1. The teacher provides the syllabus, learning goals, and collaboration rules.
-2. The AI lists two or three grouping strategies. Each comes with its exact rule, why it could fit this course, what it costs, and how strong the evidence is. The AI does not recommend one.
-3. The teacher chooses. Students are surveyed only for what that strategy needs.
+1. Create the course: name, syllabus, learning goals, collaboration rules.
+2. The AI lists two or three grouping strategies. Each shows its exact rule, why it could fit this course, what it costs, and how strong the evidence is. The AI does not recommend one.
+3. The teacher chooses. The survey asks students only what that strategy needs.
 4. A seeded algorithm, not the AI, forms the teams. The teacher sees team-level numbers and publishes.
 
-**During the project: students negotiate, the teacher supports**
+**Students**
 
-5. Chris raises an issue: he spends too much time fixing other people's work.
-6. The AI restates it as one member's perspective, not as fact, and proposes changes to specific tasks. Each change cites the teacher's goal or rule it is based on.
-7. Each member whose work would change consents or declines. A decline needs a reason. There is no majority vote.
-8. After a decline, the team can ask the AI to revise the proposal once. The revision is built around the reasons given, says what changed, and clears every earlier answer, so everyone affected decides again.
-9. If everyone affected consents, the shared task board updates.
-10. If the team cannot agree, it can share a team-level summary with the teacher. The summary contains no names and no quotes, and says which goal or rule the team is finding hard.
-11. The teacher picks or edits one AI-suggested message and sends it. It appears on the team's board.
+5. Each student sees their own week: other commitments, and whether their team tasks fit their free hours. This is private to them.
+6. Chris raises an issue: he spends too much time fixing other people's work.
+7. The AI restates it as one member's perspective, not as fact, and proposes changes to specific tasks. Each change cites the teacher's goal or rule it is based on.
+8. Each member whose work would change consents or declines. A decline needs a reason, and the student chooses what to share. There is no majority vote.
+9. After a decline, the team can ask the AI to revise the proposal once. The revision is built around the reasons given, says what changed, and clears every earlier answer.
+10. If the team cannot agree, it can share a team-level summary with the teacher. The summary contains no names and no quotes. The teacher sends one piece of guidance.
+11. When everyone affected consents, the shared task board updates.
 
 ## Design principles
 
-- **We don't use AI to judge students.** The AI never labels a student, and the program removes any student name from what the teacher sees.
-- **Consent over voting.** A majority cannot move work onto one person. The program, not the model, decides who is affected by a change.
-- **The AI suggests, people decide.** The model returns structured suggestions. The app validates them and controls every state change.
-- **No surveillance.** The teacher view shows nothing about a team's process until the team asks for support.
-- **The AI never places a student in a team.** It lists strategies. The teacher chooses. A fixed, repeatable algorithm does the grouping, and the screen shows the strategy, seed, and algorithm version.
-- **Evidence is labeled, not implied.** Each grouping strategy shows how strong its research support is, including "to be tested".
-- **Honest fallbacks.** If the live AI call fails, the app shows a built-in proposal labeled "Sample proposal (not generated live)". If a revision fails, the original proposal stays and the team sees an error. A sample never stands in for a revision.
-- **The AI never agrees on someone's behalf.** A revision does not move declined work onto another member, and anyone who would take on something new is asked for their own consent.
+1. **Human agency.** The AI suggests. People decide. Nobody's work changes without their own consent, and a majority cannot move work onto one person.
+2. **Learning over automation.** The AI structures the discussion. It does not remove it. It revises only once, and then the team or the teacher takes over.
+3. **Multiple perspectives.** One student's account is never treated as fact. The AI never judges a member's work, effort, or character.
+4. **Teacher in the loop.** The teacher owns the learning goals and steps in when a team asks. The teacher is not shown a team's process otherwise.
+5. **Privacy and consent.** The teacher summary has no names and no quotes. A student's week stays with the student. In this prototype these rules are enforced by what the app builds and shows, not by an access-control system.
+6. **Structured collaboration.** The model returns structured suggestions. The program validates them, decides who is affected, and controls every state change. The AI never places a student in a team and never agrees to work on someone's behalf.
 
-## What is simulated
+## What is real and what is simulated
 
-This is a prototype. Please read the demo with these limits in mind.
+**Real AI, called live (Claude API)**
 
-- One browser simulates four students and one teacher through a role switcher. It is not a real-time multi-device system.
-- There is no login and no access control. The privacy rules are enforced in the UI and in the data the app builds, not by a permission system.
-- All students, tasks, survey answers, and the course are mock data. State is stored in the browser (`localStorage`).
-- No survey is sent. A button loads 12 simulated responses. The syllabus is pasted text, not a file upload.
-- The grouping algorithm really runs on the 12 simulated students. The student views then continue with one fixed sample team (Alex, Bella, Chris, Dana), which is not one of the teams the algorithm formed.
-- The learning goals and collaboration rules are fixed sample text in this version.
+- Grouping options for the course
+- The first proposal from a raised concern
+- The revised proposal after a decline
+- The teacher's three suggested messages
+
+If a live call fails, the app shows a built-in result labeled "Sample ... (not generated live)". A failed revision keeps the original proposal and shows an error. A sample never stands in for a revision.
+
+**Real program logic**
+
+- Who is affected by a change, and the consent rule
+- Validation of everything the model returns, including removing student names from the teacher summary
+- The seeded grouping algorithm, which really runs on the 12 simulated students
+
+**Simulated**
+
+- One browser plays one teacher and four students through a role switcher. It is not a multi-device, real-time system. There is no login and no access control.
+- All students, tasks, survey answers, and the course are mock data, stored in the browser (`localStorage`).
+- No survey is sent. A button loads 12 simulated responses. The syllabus is pasted text, not a file upload. The learning goals and rules are fixed sample text.
+- The student views continue with one fixed sample team (Alex, Bella, Chris, Dana), which is not one of the teams the algorithm formed.
+- "My week" uses fixed mock commitments and hour estimates. There is no calendar integration, and the hours do not change when a proposal is applied.
+
+## Built tonight / not built
+
+**Built**
+
+- Course creation, AI-listed grouping strategies, seeded team formation
+- Teacher goals and rules carried into the student negotiation
+- Shared task board, private "My week" panel, team thread
+- AI proposal, consent from every affected member, one AI revision, board update
+- Teacher support request with a name-free summary, and teacher guidance
+
+**Not built**
+
+- Personal agents, or any agent-to-agent communication. Every AI step here is a single model call.
+- Persistent memory, accounts, access control, real-time sync between devices
+- Calendar or task-tool integration, cross-course time management
+- The teacher editing goals, viewing individual survey answers, or adjusting teams by hand
+- Reflection on the team's process after the project
+- Course progress tracking
 
 ## Tech stack
 
 - Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4
 - Two server routes call the Claude API (`claude-opus-5-5`) with structured output validated by Zod: `app/api/strategies/route.ts` and `app/api/proposal/route.ts`
-- Team formation is a seeded swap search in plain TypeScript (`lib/formation.ts`). No AI is involved in placing students.
+- Team formation is a seeded swap search in plain TypeScript. No AI is involved in placing students.
 - Deployed on Vercel. No database.
-
-Key files:
 
 | File | What it does |
 | --- | --- |
@@ -102,9 +118,9 @@ Key files:
 | `lib/formation.ts` | Simulated class, grouping strategies, seeded algorithm |
 | `lib/proposal.ts` | Proposal schema, validation, sample proposal |
 | `app/api/strategies/route.ts` | Grouping-options prompt and Claude API call |
-| `app/api/proposal/route.ts` | Facilitator prompt and Claude API call |
+| `app/api/proposal/route.ts` | Facilitator prompt, proposal and revision |
 | `components/CourseSetup.tsx` | Course setup and team formation |
-| `components/Workspace.tsx` | Team view and teacher view |
+| `components/Workspace.tsx` | Student view and teacher view |
 
 ## How to run
 
@@ -116,41 +132,36 @@ echo "ANTHROPIC_API_KEY=your-key-here" > .env.local
 npm run dev
 ```
 
-Open http://localhost:3000. Without a key the app still runs and shows the labeled sample proposal.
+Open http://localhost:3000. Without a key the app still runs and shows the labeled sample results.
 
 ## Known limitations
 
-- Role switching in one browser stands in for multiple users.
+- No evidence yet that this improves how students collaborate. Students may come to rely on the AI instead of learning to negotiate. This needs testing with real teams and teachers.
 - Consent is given in front of teammates, so peer pressure can still shape the answer. A real product needs a private way to respond.
 - Any one member can share the team summary with the teacher. A real product needs a team-level rule for this.
-- The proposal changes between runs, so the member asked for consent differs from run to run.
 - The program checks that a cited goal or rule exists. It cannot check that a proposal truly serves that goal.
-- The grouping strategies are simple, and four of them is not a complete set. The "personality balance" direction is an assumption, not a finding.
-- Comparing strategies across courses would need random assignment, a shared outcome measure, and research consent that is separate from course enrollment. None of this exists yet.
-- No evidence yet that AI facilitation improves how students collaborate. Students may also come to rely on the AI instead of learning to negotiate. This needs testing with real teams.
-- The team research this design draws on mostly studied MBA and graduate teams in Europe and North America. Whether it transfers to undergraduate teams in Taiwan is untested.
+- Proposals differ between runs, so the members asked for consent differ too.
+- The grouping strategies are simple, and four is not a complete set. The "personality balance" direction is an assumption, not a finding.
+- Comparing grouping strategies across courses would need random assignment, a shared outcome measure, and research consent separate from course enrollment. The platform has no such data.
+- The research behind this design mostly studied workplace, MBA, and graduate teams in Europe and North America. Whether it transfers to undergraduate teams in Taiwan is untested.
 
 ## Design background
 
-The design draws on cooperative learning (Johnson & Johnson: positive interdependence, individual accountability, group processing), scaffolding, and formative assessment. The consent-based flow also draws on research on process conflict in teams (Jehn), explicit work-assignment rationales in MBA teams (Behfar et al., 2008), team charters (Mathieu & Rapp, 2009), the voice effect in procedural justice, and psychological safety (Edmondson, 1999).
-
-The grouping strategies carry evidence labels based on Horwitz & Horwitz (2007), Donovan et al. (2018), Wilson et al. (2018), and Bell (2007).
+The design draws on cooperative learning (Johnson & Johnson: positive interdependence, individual accountability, group processing), scaffolding, formative assessment, and self-regulated learning. The consent-based flow also draws on research on process conflict in teams (Jehn), team charters (Mathieu & Rapp, 2009), the voice effect in procedural justice, and psychological safety (Edmondson, 1999). The grouping strategies carry evidence labels based on Horwitz & Horwitz (2007), Donovan et al. (2018), Wilson et al. (2018), and Bell (2007).
 
 These references were collected during the hackathon. Some were checked at the abstract level only, and some were cited from memory. None were read in full. GroupMind does not claim the validity of any published instrument, including CATME.
 
-## Future direction
+## Next steps
 
-- **Coordination scripts:** teachers choose a collaboration structure that fits the course. Tonight's demo shows one script: interest-based negotiation with consent from every affected member.
-- Let the teacher write and edit the learning goals and rules, and upload the syllabus as a file.
-- Send the survey to real students and form the teams they then work in.
-- With consent and de-identified data, compare grouping strategies across courses. The platform has no such data today.
-- Course progress tracking against the syllabus milestones.
-- Pilot with one real course and its teacher before building anything else.
+- Interview teachers who run group-project courses, then pilot Phase 2 with one real team.
+- Let teachers write their own goals and rules, and send the survey to real students.
+- Add team reflection after the project.
+- Explore personal academic agents only after the classroom flow is shown to help.
 
 ## Use of AI tools and external APIs
 
 - Built during the hackathon with Claude Code as the coding assistant.
-- Runtime AI: Claude API (`claude-opus-5-5`) for the facilitator proposal.
+- Runtime AI: Claude API (`claude-opus-5-5`).
 - A GPT browser agent was used for end-to-end QA on the deployed site.
 - Product planning (problem analysis, scope, flow) was done before the event. All code was written during the event.
 

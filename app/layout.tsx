@@ -14,7 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "GroupMind",
-  description: "An AI facilitator for student teams, with the teacher in the loop.",
+  description:
+    "An AI-powered collaborative learning platform for university courses.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
