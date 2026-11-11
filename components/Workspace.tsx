@@ -6,13 +6,22 @@ import {
   MEMBERS,
   ROLE_LABELS,
   STORAGE_KEY,
+  SUPPORT_STATUS_LINE,
+  TEAM_NAME,
   affectedMembers,
   createInitialState,
   memberName,
   reducer,
 } from "@/lib/state";
 import { buildSampleProposal } from "@/lib/proposal";
-import type { AppState, Issue, MemberId, Proposal, RoleId, Task } from "@/lib/types";
+import type {
+  AppState,
+  Issue,
+  MemberId,
+  Proposal,
+  RoleId,
+  Task,
+} from "@/lib/types";
 
 const ROLE_ORDER: RoleId[] = ["alex", "bella", "chris", "dana", "teacher"];
 
@@ -24,7 +33,8 @@ export default function Workspace() {
   useEffect(() => {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) dispatch({ type: "hydrate", state: JSON.parse(saved) as AppState });
+      if (saved)
+        dispatch({ type: "hydrate", state: JSON.parse(saved) as AppState });
     } catch {
       // Unreadable saved state: keep the initial state.
     }
@@ -80,7 +90,9 @@ export default function Workspace() {
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">GroupMind</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+              GroupMind
+            </h1>
             <p className="text-sm text-slate-600">
               An AI facilitator for student teams, with the teacher in the loop.
             </p>
@@ -94,7 +106,8 @@ export default function Workspace() {
           </button>
         </div>
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Demo mode: one browser simulates 4 students and 1 teacher. All data is mock data.
+          Demo mode: one browser simulates 4 students and 1 teacher. All data is
+          mock data.
         </p>
         <RoleSwitcher
           current={state.currentRole}
@@ -103,14 +116,20 @@ export default function Workspace() {
       </header>
 
       {isTeacher ? (
-        <TeacherView />
+        <TeacherView
+          state={state}
+          onSend={(text) => dispatch({ type: "send_guidance", text })}
+        />
       ) : (
         <TeamView
           state={state}
           currentMember={state.currentRole as MemberId}
           loading={loading}
           onRaiseIssue={(text) => {
-            const issue: Issue = { raisedBy: state.currentRole as MemberId, text };
+            const issue: Issue = {
+              raisedBy: state.currentRole as MemberId,
+              text,
+            };
             dispatch({ type: "raise_issue", ...issue });
             void requestProposal(issue);
           }}
@@ -125,6 +144,7 @@ export default function Workspace() {
               reason,
             })
           }
+          onRequestSupport={() => dispatch({ type: "request_support" })}
         />
       )}
     </div>
@@ -170,6 +190,7 @@ function TeamView({
   onRaiseIssue,
   onRetry,
   onRespond,
+  onRequestSupport,
 }: {
   state: AppState;
   currentMember: MemberId;
@@ -177,9 +198,26 @@ function TeamView({
   onRaiseIssue: (text: string) => void;
   onRetry: () => void;
   onRespond: RespondHandler;
+  onRequestSupport: () => void;
 }) {
   return (
     <main className="flex flex-col gap-6">
+      {state.teacherGuidance && (
+        <section
+          aria-labelledby="guidance-heading"
+          className="rounded-lg border-2 border-violet-300 bg-violet-50 p-4"
+        >
+          <h2
+            id="guidance-heading"
+            className="text-sm font-semibold text-violet-900"
+          >
+            From your teacher
+          </h2>
+          <p className="mt-2 text-sm text-violet-950">
+            {state.teacherGuidance}
+          </p>
+        </section>
+      )}
       <TaskBoard tasks={state.tasks} currentMember={currentMember} />
       {state.issue ? (
         <>
@@ -187,23 +225,34 @@ function TeamView({
             <h2 className="text-sm font-semibold text-slate-900">
               Issue raised by {memberName(state.issue.raisedBy)}
             </h2>
-            <p className="mt-2 text-sm text-slate-700">&ldquo;{state.issue.text}&rdquo;</p>
+            <p className="mt-2 text-sm text-slate-700">
+              &ldquo;{state.issue.text}&rdquo;
+            </p>
           </section>
           {state.proposal ? (
-            <ProposalCard
-              proposal={state.proposal}
-              tasks={state.tasks}
-              key={currentMember}
-              currentMember={currentMember}
-              onRespond={onRespond}
-            />
+            <>
+              <ProposalCard
+                proposal={state.proposal}
+                tasks={state.tasks}
+                key={currentMember}
+                currentMember={currentMember}
+                onRespond={onRespond}
+              />
+              {state.proposal.status === "needs_revision" && (
+                <SupportRequest
+                  proposal={state.proposal}
+                  requested={state.supportRequested}
+                  onRequest={onRequestSupport}
+                />
+              )}
+            </>
           ) : loading ? (
             <p
               role="status"
               className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900"
             >
-              The facilitator is reading the board and drafting a proposal. This takes a few
-              seconds.
+              The facilitator is reading the board and drafting a proposal. This
+              takes a few seconds.
             </p>
           ) : (
             <div className="rounded-lg border border-slate-200 bg-white p-4">
@@ -219,13 +268,19 @@ function TeamView({
           )}
         </>
       ) : (
-        <IssueForm memberName={memberName(currentMember)} onSubmit={onRaiseIssue} />
+        <IssueForm
+          memberName={memberName(currentMember)}
+          onSubmit={onRaiseIssue}
+        />
       )}
     </main>
   );
 }
 
-type RespondHandler = (decision: "consent" | "decline", reason?: string) => void;
+type RespondHandler = (
+  decision: "consent" | "decline",
+  reason?: string,
+) => void;
 
 const DEFAULT_DECLINE_REASON =
   "I already have a lot due that week. I can't take on more right now.";
@@ -254,7 +309,10 @@ function ProposalCard({
       className="rounded-lg border border-indigo-200 bg-white p-4"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <h2 id="proposal-heading" className="text-lg font-semibold text-slate-900">
+        <h2
+          id="proposal-heading"
+          className="text-lg font-semibold text-slate-900"
+        >
           Facilitator proposal
         </h2>
         {proposal.isSample && (
@@ -264,30 +322,45 @@ function ProposalCard({
         )}
       </div>
 
-      <p className="mt-3 text-sm text-slate-700">{proposal.perspectiveSummary}</p>
+      <p className="mt-3 text-sm text-slate-700">
+        {proposal.perspectiveSummary}
+      </p>
 
-      <h3 className="mt-4 text-sm font-semibold text-slate-900">Proposed changes</h3>
+      <h3 className="mt-4 text-sm font-semibold text-slate-900">
+        Proposed changes
+      </h3>
       <ol className="mt-2 flex flex-col gap-3">
         {proposal.changes.map((change) => {
-          const task = tasks.find((candidate) => candidate.id === change.taskId);
+          const task = tasks.find(
+            (candidate) => candidate.id === change.taskId,
+          );
           return (
-            <li key={change.taskId} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <li
+              key={change.taskId}
+              className="rounded-md border border-slate-200 bg-slate-50 p-3"
+            >
               <p className="text-sm font-medium text-slate-900">
                 {task?.title ?? change.taskId}
                 {change.newTitle && !applied && <> &rarr; {change.newTitle}</>}
               </p>
               {change.newOwnerId && task && (
                 <p className="mt-1 text-sm text-slate-700">
-                  Owner: {applied ? "" : <>{memberName(task.ownerId)} &rarr; </>}
+                  Owner:{" "}
+                  {applied ? "" : <>{memberName(task.ownerId)} &rarr; </>}
                   {memberName(change.newOwnerId)}
                 </p>
               )}
               {change.newDetail && (
-                <p className="mt-1 text-sm text-slate-700">New scope: {change.newDetail}</p>
+                <p className="mt-1 text-sm text-slate-700">
+                  New scope: {change.newDetail}
+                </p>
               )}
-              <p className="mt-2 text-xs text-slate-600">Why: {change.reason}</p>
+              <p className="mt-2 text-xs text-slate-600">
+                Why: {change.reason}
+              </p>
               <p className="mt-2 text-xs font-medium text-indigo-800">
-                Needs consent from: {change.affectedMemberIds.map(memberName).join(", ")}
+                Needs consent from:{" "}
+                {change.affectedMemberIds.map(memberName).join(", ")}
               </p>
             </li>
           );
@@ -300,7 +373,9 @@ function ProposalCard({
           const response = proposal.responses[id];
           return (
             <li key={id} className="text-sm text-slate-700">
-              <span className="font-medium text-slate-900">{memberName(id)}:</span>{" "}
+              <span className="font-medium text-slate-900">
+                {memberName(id)}:
+              </span>{" "}
               {!response && "Waiting for an answer"}
               {response?.decision === "consent" && (
                 <span className="font-medium text-emerald-700">Consented</span>
@@ -338,14 +413,15 @@ function ProposalCard({
       {!applied && (
         <p className="mt-4 text-xs text-slate-600">
           Nothing changes until {needsConsent.map(memberName).join(" and ")}{" "}
-          {needsConsent.length === 1 ? "agrees" : "agree"}. There is no majority vote.
+          {needsConsent.length === 1 ? "agrees" : "agree"}. There is no majority
+          vote.
         </p>
       )}
 
       {!applied && !isAffected && (
         <p className="mt-3 text-sm text-slate-700">
-          {memberName(currentMember)}, these changes do not affect your work, so your consent is
-          not needed.
+          {memberName(currentMember)}, these changes do not affect your work, so
+          your consent is not needed.
         </p>
       )}
 
@@ -364,7 +440,9 @@ function ProposalCard({
             onClick={() => setDeclining(true)}
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            {myResponse?.decision === "decline" ? "Change my reason" : "I can't agree to this yet"}
+            {myResponse?.decision === "decline"
+              ? "Change my reason"
+              : "I can't agree to this yet"}
           </button>
         </div>
       )}
@@ -379,7 +457,10 @@ function ProposalCard({
             setDeclining(false);
           }}
         >
-          <label htmlFor="decline-reason" className="text-sm font-medium text-slate-900">
+          <label
+            htmlFor="decline-reason"
+            className="text-sm font-medium text-slate-900"
+          >
             What makes this hard for you? Your team will see this.
           </label>
           <textarea
@@ -411,15 +492,26 @@ function ProposalCard({
   );
 }
 
-function TaskBoard({ tasks, currentMember }: { tasks: Task[]; currentMember: MemberId }) {
+function TaskBoard({
+  tasks,
+  currentMember,
+}: {
+  tasks: Task[];
+  currentMember: MemberId;
+}) {
   return (
     <section aria-labelledby="board-heading">
-      <h2 id="board-heading" className="mb-3 text-lg font-semibold text-slate-900">
+      <h2
+        id="board-heading"
+        className="mb-3 text-lg font-semibold text-slate-900"
+      >
         Team task board
       </h2>
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {MEMBERS.map((member) => {
-          const memberTasks = tasks.filter((task) => task.ownerId === member.id);
+          const memberTasks = tasks.filter(
+            (task) => task.ownerId === member.id,
+          );
           const isMe = member.id === currentMember;
           return (
             <li
@@ -431,7 +523,9 @@ function TaskBoard({ tasks, currentMember }: { tasks: Task[]; currentMember: Mem
               }
             >
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-900">{member.name}</span>
+                <span className="font-semibold text-slate-900">
+                  {member.name}
+                </span>
                 {isMe && (
                   <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
                     You
@@ -452,7 +546,9 @@ function TaskBoard({ tasks, currentMember }: { tasks: Task[]; currentMember: Mem
                     }
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-slate-900">{task.title}</span>
+                      <span className="text-sm font-medium text-slate-900">
+                        {task.title}
+                      </span>
                       {task.changed && (
                         <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">
                           Updated
@@ -489,11 +585,15 @@ function IssueForm({
         if (trimmed) onSubmit(trimmed);
       }}
     >
-      <label htmlFor="issue-text" className="text-sm font-semibold text-slate-900">
+      <label
+        htmlFor="issue-text"
+        className="text-sm font-semibold text-slate-900"
+      >
         {name}, is something not working in your team?
       </label>
       <p className="mt-1 text-xs text-slate-600">
-        The AI facilitator treats this as your perspective, not as a fact about your teammates.
+        The AI facilitator treats this as your perspective, not as a fact about
+        your teammates.
       </p>
       <textarea
         id="issue-text"
@@ -513,14 +613,160 @@ function IssueForm({
   );
 }
 
-function TeacherView() {
+function SharedSummary({ proposal }: { proposal: Proposal }) {
   return (
-    <main className="rounded-lg border border-slate-200 bg-white p-6">
-      <h2 className="text-lg font-semibold text-slate-900">Teacher view</h2>
-      <p className="mt-2 text-sm text-slate-600">No team needs support.</p>
-      <p className="mt-1 text-xs text-slate-500">
-        You only see what a team chooses to share. Private conversations are never shown here.
+    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-sm text-slate-800">{proposal.teamSummary}</p>
+      <p className="mt-2 text-sm text-slate-800">{SUPPORT_STATUS_LINE}</p>
+    </div>
+  );
+}
+
+function SupportRequest({
+  proposal,
+  requested,
+  onRequest,
+}: {
+  proposal: Proposal;
+  requested: boolean;
+  onRequest: () => void;
+}) {
+  return (
+    <section
+      aria-labelledby="support-heading"
+      className="rounded-lg border border-violet-200 bg-white p-4"
+    >
+      <h2 id="support-heading" className="text-sm font-semibold text-slate-900">
+        {requested
+          ? "Support requested"
+          : "Stuck? Ask your teacher for support"}
+      </h2>
+      <p className="mt-1 text-xs text-slate-600">
+        {requested
+          ? "Your teacher sees only this summary. No names, no quotes, no private messages."
+          : "This is everything your teacher will see. No names, no quotes, no private messages."}
       </p>
+      <SharedSummary proposal={proposal} />
+      {!requested && (
+        <button
+          type="button"
+          onClick={onRequest}
+          className="mt-3 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+        >
+          Share this and ask for support
+        </button>
+      )}
+    </section>
+  );
+}
+
+function TeacherView({
+  state,
+  onSend,
+}: {
+  state: AppState;
+  onSend: (text: string) => void;
+}) {
+  const proposal = state.proposal;
+  const [draft, setDraft] = useState("");
+
+  if (!state.supportRequested || !proposal) {
+    return (
+      <main className="rounded-lg border border-slate-200 bg-white p-6">
+        <h2 className="text-lg font-semibold text-slate-900">Teacher view</h2>
+        <p className="mt-2 text-sm text-slate-600">No team needs support.</p>
+        <p className="mt-1 text-xs text-slate-500">
+          You only see what a team chooses to share. Private conversations are
+          never shown here.
+        </p>
+      </main>
+    );
+  }
+
+  return (
+    <main className="rounded-lg border border-violet-200 bg-white p-6">
+      <h2 className="text-lg font-semibold text-slate-900">Teacher view</h2>
+      <p className="mt-1 text-xs text-slate-500">
+        You only see what a team chooses to share. Private conversations are
+        never shown here.
+      </p>
+
+      <h3 className="mt-5 text-sm font-semibold text-slate-900">
+        {TEAM_NAME} asked for support
+      </h3>
+      <SharedSummary proposal={proposal} />
+
+      {proposal.status === "applied" && (
+        <p className="mt-3 text-sm font-medium text-emerald-800">
+          Update: the team has since reached an agreement.
+        </p>
+      )}
+
+      {state.teacherGuidance ? (
+        <div className="mt-5">
+          <h3 className="text-sm font-semibold text-slate-900">
+            Sent to the team
+          </h3>
+          <p className="mt-2 rounded-md border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950">
+            {state.teacherGuidance}
+          </p>
+        </div>
+      ) : (
+        <form
+          className="mt-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (draft.trim()) onSend(draft);
+          }}
+        >
+          <h3 className="text-sm font-semibold text-slate-900">
+            Send one piece of guidance
+          </h3>
+          <p className="mt-1 text-xs text-slate-600">
+            AI-suggested starting points. Pick one, edit it, or write your own.
+            You decide what is sent.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {proposal.teacherPromptOptions.map((option, index) => (
+              <li key={index}>
+                <button
+                  type="button"
+                  aria-pressed={draft === option}
+                  onClick={() => setDraft(option)}
+                  className={
+                    draft === option
+                      ? "w-full rounded-md border-2 border-violet-500 bg-violet-50 p-3 text-left text-sm text-slate-900"
+                      : "w-full rounded-md border border-slate-200 bg-white p-3 text-left text-sm text-slate-800 hover:bg-slate-50"
+                  }
+                >
+                  {option}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <label
+            htmlFor="guidance-draft"
+            className="mt-4 block text-sm font-medium text-slate-900"
+          >
+            Message to the team
+          </label>
+          <textarea
+            id="guidance-draft"
+            rows={3}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Pick a suggestion above or write your own."
+            className="mt-2 w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim()}
+            className="mt-3 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            Send to the team
+          </button>
+        </form>
+      )}
     </main>
   );
 }

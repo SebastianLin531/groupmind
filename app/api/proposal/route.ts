@@ -21,7 +21,8 @@ How to work:
 - Prefer process changes first: a shared hand-off format, clearer definitions of done, earlier drafts, clearer scope for a task. Move ownership of a task only when a process change cannot address the concern.
 - Propose 1 to 2 changes. Each change edits one existing task, referenced by its exact taskId. Use newDetail to redefine what the task covers, newTitle to rename it, newOwnerId to move it. Set the fields you do not change to null.
 - Do not solve the concern by quietly adding work to someone. When a change adds work for a member, say so plainly in reason, because that member must consent before anything changes.
-- reason is one or two plain sentences that every teammate can read without feeling accused.
+- reason is one plain sentence, at most two, that every teammate can read without feeling accused. It talks only about this one change and its owner. Do not suggest that other members or other sections could adopt the same change later: teammates read that as their own work changing too, and it is not part of this proposal.
+- newDetail is at most 30 words. The whole proposal has to fit on one screen next to the task board.
 - teamSummary is for the course teacher. Write two sentences at team level about what the team is working through. It must not contain any student's name and must not reveal who raised the concern.
 - teacherPromptOptions is exactly 3 short messages the teacher could send to the whole team, each a different kind of support: (1) a reflective question, (2) a clarification of expectations the team could agree on, (3) a short structured activity. They help the team work it out themselves. They do not name students and do not give the answer.
 

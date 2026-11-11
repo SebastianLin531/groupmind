@@ -48,6 +48,12 @@ export const INITIAL_TASKS: Task[] = [
 export const DEFAULT_ISSUE_TEXT =
   "I'm spending too much time fixing other people's work. I don't think our workload is fair.";
 
+export const TEAM_NAME = "Team 3 - Startup pitch project";
+
+/** The only status line the teacher sees. It names no one and quotes no one. */
+export const SUPPORT_STATUS_LINE =
+  "The team tried one proposal. It was not agreed, because at least one affected member could not take on the change.";
+
 export const STORAGE_KEY = "groupmind-state-v1";
 
 export function createInitialState(): AppState {
@@ -131,6 +137,8 @@ export type Action =
   | { type: "raise_issue"; raisedBy: MemberId; text: string }
   | { type: "set_proposal"; proposal: Proposal }
   | { type: "respond"; memberId: MemberId; decision: "consent" | "decline"; reason?: string }
+  | { type: "request_support" }
+  | { type: "send_guidance"; text: string }
   | { type: "reset" };
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -150,6 +158,15 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, proposal: action.proposal };
     case "respond":
       return respond(state, action.memberId, action.decision, action.reason);
+    case "request_support":
+      // A team can ask for support only after it tried and did not agree.
+      if (state.proposal?.status !== "needs_revision") return state;
+      return { ...state, supportRequested: true };
+    case "send_guidance": {
+      const text = action.text.trim();
+      if (!state.supportRequested || !text) return state;
+      return { ...state, teacherGuidance: text };
+    }
     case "reset":
       return createInitialState();
     default:
