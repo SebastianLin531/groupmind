@@ -122,15 +122,6 @@ export function buildProposal(
   };
 }
 
-/** Every member who must consent before the proposal can apply. */
-export function affectedMembers(proposal: Proposal): MemberId[] {
-  const ids = new Set<MemberId>();
-  for (const change of proposal.changes) {
-    for (const id of change.affectedMemberIds) ids.add(id);
-  }
-  return MEMBERS.map((member) => member.id).filter((id) => ids.has(id));
-}
-
 /** Shown, clearly labeled, when the live AI call is unavailable. */
 export function buildSampleProposal(tasks: TaskInput[], raisedByName: string): Proposal {
   const sample: AiProposal = {

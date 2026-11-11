@@ -65,11 +65,72 @@ export function memberName(id: MemberId): string {
   return MEMBERS.find((member) => member.id === id)?.name ?? id;
 }
 
+/** Every member whose work a proposal would change. All of them must consent. */
+export function affectedMembers(proposal: Proposal): MemberId[] {
+  const ids = new Set<MemberId>();
+  for (const change of proposal.changes) {
+    for (const id of change.affectedMemberIds) ids.add(id);
+  }
+  return MEMBERS.map((member) => member.id).filter((id) => ids.has(id));
+}
+
+/**
+ * Records one member's answer.
+ * Fairness rule: a proposal applies only when every affected member consents.
+ * There is no majority vote, and a decline keeps the board unchanged.
+ */
+function respond(
+  state: AppState,
+  memberId: MemberId,
+  decision: "consent" | "decline",
+  reason?: string,
+): AppState {
+  const proposal = state.proposal;
+  if (!proposal || proposal.status === "applied") return state;
+
+  const affected = affectedMembers(proposal);
+  if (!affected.includes(memberId)) return state;
+
+  const trimmedReason = reason?.trim();
+  // A decline must come with a reason, so the team has something to work with.
+  if (decision === "decline" && !trimmedReason) return state;
+
+  const responses = {
+    ...proposal.responses,
+    [memberId]: decision === "decline" ? { decision, reason: trimmedReason } : { decision },
+  };
+
+  const anyDecline = affected.some((id) => responses[id]?.decision === "decline");
+  const allConsent = affected.every((id) => responses[id]?.decision === "consent");
+
+  if (!allConsent) {
+    return {
+      ...state,
+      proposal: { ...proposal, responses, status: anyDecline ? "needs_revision" : "open" },
+    };
+  }
+
+  const tasks = state.tasks.map((task) => {
+    const change = proposal.changes.find((candidate) => candidate.taskId === task.id);
+    if (!change) return { ...task, changed: false };
+    return {
+      ...task,
+      ownerId: change.newOwnerId ?? task.ownerId,
+      title: change.newTitle ?? task.title,
+      detail: change.newDetail ?? task.detail,
+      changed: true,
+    };
+  });
+
+  return { ...state, tasks, proposal: { ...proposal, responses, status: "applied" } };
+}
+
 export type Action =
   | { type: "hydrate"; state: AppState }
   | { type: "switch_role"; role: RoleId }
   | { type: "raise_issue"; raisedBy: MemberId; text: string }
   | { type: "set_proposal"; proposal: Proposal }
+  | { type: "respond"; memberId: MemberId; decision: "consent" | "decline"; reason?: string }
   | { type: "reset" };
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -87,6 +148,8 @@ export function reducer(state: AppState, action: Action): AppState {
       // Ignore a late AI answer after the demo was reset.
       if (!state.issue) return state;
       return { ...state, proposal: action.proposal };
+    case "respond":
+      return respond(state, action.memberId, action.decision, action.reason);
     case "reset":
       return createInitialState();
     default:

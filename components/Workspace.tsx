@@ -6,11 +6,12 @@ import {
   MEMBERS,
   ROLE_LABELS,
   STORAGE_KEY,
+  affectedMembers,
   createInitialState,
   memberName,
   reducer,
 } from "@/lib/state";
-import { affectedMembers, buildSampleProposal } from "@/lib/proposal";
+import { buildSampleProposal } from "@/lib/proposal";
 import type { AppState, Issue, MemberId, Proposal, RoleId, Task } from "@/lib/types";
 
 const ROLE_ORDER: RoleId[] = ["alex", "bella", "chris", "dana", "teacher"];
@@ -116,6 +117,14 @@ export default function Workspace() {
           onRetry={() => {
             if (state.issue) void requestProposal(state.issue);
           }}
+          onRespond={(decision, reason) =>
+            dispatch({
+              type: "respond",
+              memberId: state.currentRole as MemberId,
+              decision,
+              reason,
+            })
+          }
         />
       )}
     </div>
@@ -160,12 +169,14 @@ function TeamView({
   loading,
   onRaiseIssue,
   onRetry,
+  onRespond,
 }: {
   state: AppState;
   currentMember: MemberId;
   loading: boolean;
   onRaiseIssue: (text: string) => void;
   onRetry: () => void;
+  onRespond: RespondHandler;
 }) {
   return (
     <main className="flex flex-col gap-6">
@@ -179,7 +190,13 @@ function TeamView({
             <p className="mt-2 text-sm text-slate-700">&ldquo;{state.issue.text}&rdquo;</p>
           </section>
           {state.proposal ? (
-            <ProposalCard proposal={state.proposal} tasks={state.tasks} />
+            <ProposalCard
+              proposal={state.proposal}
+              tasks={state.tasks}
+              key={currentMember}
+              currentMember={currentMember}
+              onRespond={onRespond}
+            />
           ) : loading ? (
             <p
               role="status"
@@ -208,8 +225,28 @@ function TeamView({
   );
 }
 
-function ProposalCard({ proposal, tasks }: { proposal: Proposal; tasks: Task[] }) {
+type RespondHandler = (decision: "consent" | "decline", reason?: string) => void;
+
+const DEFAULT_DECLINE_REASON =
+  "I already have a lot due that week. I can't take on more right now.";
+
+function ProposalCard({
+  proposal,
+  tasks,
+  currentMember,
+  onRespond,
+}: {
+  proposal: Proposal;
+  tasks: Task[];
+  currentMember: MemberId;
+  onRespond: RespondHandler;
+}) {
   const needsConsent = affectedMembers(proposal);
+  const applied = proposal.status === "applied";
+  const isAffected = needsConsent.includes(currentMember);
+  const myResponse = proposal.responses[currentMember];
+  const [declining, setDeclining] = useState(false);
+  const [reason, setReason] = useState(DEFAULT_DECLINE_REASON);
 
   return (
     <section
@@ -237,11 +274,12 @@ function ProposalCard({ proposal, tasks }: { proposal: Proposal; tasks: Task[] }
             <li key={change.taskId} className="rounded-md border border-slate-200 bg-slate-50 p-3">
               <p className="text-sm font-medium text-slate-900">
                 {task?.title ?? change.taskId}
-                {change.newTitle && <> &rarr; {change.newTitle}</>}
+                {change.newTitle && !applied && <> &rarr; {change.newTitle}</>}
               </p>
               {change.newOwnerId && task && (
                 <p className="mt-1 text-sm text-slate-700">
-                  Owner: {memberName(task.ownerId)} &rarr; {memberName(change.newOwnerId)}
+                  Owner: {applied ? "" : <>{memberName(task.ownerId)} &rarr; </>}
+                  {memberName(change.newOwnerId)}
                 </p>
               )}
               {change.newDetail && (
@@ -256,10 +294,119 @@ function ProposalCard({ proposal, tasks }: { proposal: Proposal; tasks: Task[] }
         })}
       </ol>
 
-      <p className="mt-4 text-xs text-slate-600">
-        Nothing changes until {needsConsent.map(memberName).join(" and ")}{" "}
-        {needsConsent.length === 1 ? "agrees" : "agree"}. There is no majority vote.
-      </p>
+      <h3 className="mt-4 text-sm font-semibold text-slate-900">Consent</h3>
+      <ul className="mt-2 flex flex-col gap-1">
+        {needsConsent.map((id) => {
+          const response = proposal.responses[id];
+          return (
+            <li key={id} className="text-sm text-slate-700">
+              <span className="font-medium text-slate-900">{memberName(id)}:</span>{" "}
+              {!response && "Waiting for an answer"}
+              {response?.decision === "consent" && (
+                <span className="font-medium text-emerald-700">Consented</span>
+              )}
+              {response?.decision === "decline" && (
+                <>
+                  <span className="font-medium text-rose-700">Declined</span>
+                  {" - "}
+                  &ldquo;{response.reason}&rdquo;
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {applied && (
+        <p
+          role="status"
+          className="mt-4 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm font-medium text-emerald-900"
+        >
+          Everyone affected agreed. The task board is updated.
+        </p>
+      )}
+
+      {proposal.status === "needs_revision" && (
+        <p
+          role="status"
+          className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"
+        >
+          Not agreed yet. Nothing on the board has changed.
+        </p>
+      )}
+
+      {!applied && (
+        <p className="mt-4 text-xs text-slate-600">
+          Nothing changes until {needsConsent.map(memberName).join(" and ")}{" "}
+          {needsConsent.length === 1 ? "agrees" : "agree"}. There is no majority vote.
+        </p>
+      )}
+
+      {!applied && !isAffected && (
+        <p className="mt-3 text-sm text-slate-700">
+          {memberName(currentMember)}, these changes do not affect your work, so your consent is
+          not needed.
+        </p>
+      )}
+
+      {!applied && isAffected && !declining && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={myResponse?.decision === "consent"}
+            onClick={() => onRespond("consent")}
+            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {myResponse?.decision === "consent" ? "You consented" : "I consent"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeclining(true)}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            {myResponse?.decision === "decline" ? "Change my reason" : "I can't agree to this yet"}
+          </button>
+        </div>
+      )}
+
+      {!applied && isAffected && declining && (
+        <form
+          className="mt-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!reason.trim()) return;
+            onRespond("decline", reason);
+            setDeclining(false);
+          }}
+        >
+          <label htmlFor="decline-reason" className="text-sm font-medium text-slate-900">
+            What makes this hard for you? Your team will see this.
+          </label>
+          <textarea
+            id="decline-reason"
+            rows={2}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            className="mt-2 w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+          />
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="submit"
+              disabled={!reason.trim()}
+              className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Decline with this reason
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeclining(false)}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
     </section>
   );
 }
