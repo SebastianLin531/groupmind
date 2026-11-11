@@ -201,6 +201,7 @@ export type Action =
   | { type: "switch_role"; role: RoleId }
   | { type: "raise_issue"; raisedBy: MemberId; text: string }
   | { type: "set_proposal"; proposal: Proposal }
+  | { type: "set_revised_proposal"; proposal: Proposal }
   | {
       type: "respond";
       memberId: MemberId;
@@ -236,6 +237,23 @@ export function reducer(state: AppState, action: Action): AppState {
       // Ignore a late AI answer after the demo was reset.
       if (!state.issue) return state;
       return { ...state, proposal: action.proposal };
+    case "set_revised_proposal":
+      // One revision only, and only while the team has not agreed.
+      if (
+        state.proposal?.status !== "needs_revision" ||
+        state.proposal.isRevised
+      )
+        return state;
+      // A revised proposal starts with no answers: everyone affected decides again.
+      return {
+        ...state,
+        proposal: {
+          ...action.proposal,
+          responses: {},
+          status: "open",
+          isRevised: true,
+        },
+      };
     case "respond":
       return respond(state, action.memberId, action.decision, action.reason);
     case "request_support":

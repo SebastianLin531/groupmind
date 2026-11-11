@@ -58,6 +58,71 @@ export default function Workspace() {
   }, [state, hydrated]);
 
   const [loading, setLoading] = useState(false);
+  const [revising, setRevising] = useState(false);
+  const [revisionError, setRevisionError] = useState<string | null>(null);
+
+  // Ask the AI to revise a declined proposal, once. On failure the original
+  // proposal stays as it is and the team sees an error, never a stand-in.
+  async function requestRevision() {
+    const { issue, proposal } = state;
+    if (!issue || !proposal || revising) return;
+    if (proposal.status !== "needs_revision" || proposal.isRevised) return;
+
+    setRevising(true);
+    setRevisionError(null);
+    const tasks = state.tasks.map(({ id, title, detail, ownerId }) => ({
+      id,
+      title,
+      detail,
+      ownerId,
+    }));
+    const courseContext =
+      SHOW_COURSE_SETUP && state.setup.stage === "published"
+        ? COURSE_CONTEXT
+        : undefined;
+    const revision = {
+      previousChanges: proposal.changes.map(
+        ({ taskId, newOwnerId, newTitle, newDetail, reason }) => ({
+          taskId,
+          newOwnerId,
+          newTitle,
+          newDetail,
+          reason,
+        }),
+      ),
+      responses: affectedMembers(proposal).map((memberId) => ({
+        memberId,
+        decision: proposal.responses[memberId]?.decision ?? "no_answer",
+        reason: proposal.responses[memberId]?.reason,
+      })),
+      teacherGuidance: state.teacherGuidance ?? undefined,
+    };
+    try {
+      const response = await fetch("/api/proposal", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ issue, tasks, courseContext, revision }),
+      });
+      const data = (await response.json()) as {
+        proposal?: Proposal;
+        error?: string;
+      };
+      if (!response.ok || !data.proposal) {
+        throw new Error(
+          data.error ?? "The facilitator could not revise the proposal.",
+        );
+      }
+      dispatch({ type: "set_revised_proposal", proposal: data.proposal });
+    } catch (error) {
+      setRevisionError(
+        error instanceof Error && error.message
+          ? error.message
+          : "The facilitator could not revise the proposal. Your original proposal is unchanged.",
+      );
+    } finally {
+      setRevising(false);
+    }
+  }
 
   // Ask the AI facilitator for a proposal. The server always answers with a
   // usable proposal; if even that fails, use the labeled sample.
@@ -164,6 +229,9 @@ export default function Workspace() {
             })
           }
           onRequestSupport={() => dispatch({ type: "request_support" })}
+          revising={revising}
+          revisionError={revisionError}
+          onRequestRevision={() => void requestRevision()}
         />
       )}
     </div>
@@ -210,6 +278,9 @@ function TeamView({
   onRetry,
   onRespond,
   onRequestSupport,
+  revising,
+  revisionError,
+  onRequestRevision,
 }: {
   state: AppState;
   currentMember: MemberId;
@@ -218,6 +289,9 @@ function TeamView({
   onRetry: () => void;
   onRespond: RespondHandler;
   onRequestSupport: () => void;
+  revising: boolean;
+  revisionError: string | null;
+  onRequestRevision: () => void;
 }) {
   const published = SHOW_COURSE_SETUP && state.setup.stage === "published";
   const strategyName = state.setup.strategyId
@@ -278,10 +352,45 @@ function TeamView({
               <ProposalCard
                 proposal={state.proposal}
                 tasks={state.tasks}
-                key={currentMember}
+                key={`${currentMember}-${state.proposal.isRevised ? "revised" : "first"}`}
                 currentMember={currentMember}
                 onRespond={onRespond}
               />
+              {state.proposal.status === "needs_revision" &&
+                !state.proposal.isRevised && (
+                  <section
+                    aria-labelledby="revise-heading"
+                    className="rounded-lg border border-indigo-200 bg-white p-4"
+                  >
+                    <h2
+                      id="revise-heading"
+                      className="text-sm font-semibold text-slate-900"
+                    >
+                      Try a different arrangement
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-600">
+                      The facilitator rewrites the proposal around the reasons
+                      given. One revision only. Everyone affected decides again
+                      from scratch.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={revising}
+                      aria-busy={revising}
+                      onClick={onRequestRevision}
+                      className="mt-3 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      {revising
+                        ? "Revising the proposal..."
+                        : "Ask AI to revise proposal"}
+                    </button>
+                    {revisionError && (
+                      <p role="alert" className="mt-3 text-sm text-rose-800">
+                        {revisionError}
+                      </p>
+                    )}
+                  </section>
+                )}
               {state.proposal.status === "needs_revision" && (
                 <SupportRequest
                   proposal={state.proposal}
@@ -327,7 +436,7 @@ type RespondHandler = (
 ) => void;
 
 const DEFAULT_DECLINE_REASON =
-  "I already have a lot due that week. I can't take on more right now.";
+  "I have two exams this week and can't take on more work.";
 
 function ProposalCard({
   proposal,
@@ -357,7 +466,7 @@ function ProposalCard({
           id="proposal-heading"
           className="text-lg font-semibold text-slate-900"
         >
-          Facilitator proposal
+          {proposal.isRevised ? "Revised proposal" : "Facilitator proposal"}
         </h2>
         {proposal.isSample && (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
@@ -365,6 +474,13 @@ function ProposalCard({
           </span>
         )}
       </div>
+
+      {proposal.isRevised && proposal.revisionNote && (
+        <p className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-950">
+          <span className="font-semibold">What changed:</span>{" "}
+          {proposal.revisionNote}
+        </p>
+      )}
 
       <p className="mt-3 text-sm text-slate-700">
         {proposal.perspectiveSummary}

@@ -28,6 +28,8 @@ export const AiProposalSchema = z.object({
     }),
   ),
   teacherPromptOptions: z.array(z.string()),
+  /** What changed compared with the previous proposal. Null for a first proposal. */
+  revisionNote: z.string().nullable(),
 });
 
 export type AiProposal = z.infer<typeof AiProposalSchema>;
@@ -57,6 +59,33 @@ export const ProposalRequestSchema = z.object({
       collaborationRules: z
         .array(z.object({ id: z.string().max(8), text: z.string().max(300) }))
         .max(5),
+    })
+    .optional(),
+  /** Present when the team asks the AI to revise a declined proposal. */
+  revision: z
+    .object({
+      previousChanges: z
+        .array(
+          z.object({
+            taskId: z.string().max(60),
+            newOwnerId: z.enum(MEMBER_IDS).optional(),
+            newTitle: z.string().max(200).optional(),
+            newDetail: z.string().max(600).optional(),
+            reason: z.string().max(800),
+          }),
+        )
+        .min(1)
+        .max(3),
+      responses: z
+        .array(
+          z.object({
+            memberId: z.enum(MEMBER_IDS),
+            decision: z.enum(["consent", "decline", "no_answer"]),
+            reason: z.string().max(500).optional(),
+          }),
+        )
+        .max(4),
+      teacherGuidance: z.string().max(1000).optional(),
     })
     .optional(),
 });
@@ -194,6 +223,7 @@ export function buildSampleProposal(
       },
     ],
     teacherPromptOptions: DEFAULT_TEACHER_OPTIONS,
+    revisionNote: null,
   };
 
   const proposal = buildProposal(sample, tasks, true, courseContext);

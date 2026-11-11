@@ -74,6 +74,10 @@ export interface Proposal {
   isSample: boolean;
   responses: Partial<Record<MemberId, MemberResponse>>;
   status: ProposalStatus;
+  /** True when the AI rewrote the proposal after a decline. Allowed once. */
+  isRevised?: boolean;
+  /** One sentence from the AI on what changed in the revision. */
+  revisionNote?: string;
 }
 
 export interface AppState {

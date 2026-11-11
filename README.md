@@ -20,6 +20,31 @@ GroupMind follows a course from setup to teamwork. The teacher sets the learning
 - Students decide. Nobody's work changes without their own consent.
 - The teacher steps in only when a team asks, and sees only what the team shares.
 
+## Vision
+
+GroupMind's long-term direction is a collaboration network of personal AI agents. Each person has their own agent for their tasks and time. When people need to work together, their agents exchange a limited, authorized set of information, negotiate, and bring the result back to each person to approve.
+
+Tonight's prototype is one layer of that: **the decision-making layer**. An AI proposes, the people affected consent, and the shared tasks update. The agent network itself is not built.
+
+### Built tonight
+
+- Shared task board with five simulated roles
+- AI proposal from a raised concern, with structured output validated by the program
+- Consent from every affected member, with a reason required to decline
+- One AI revision of a declined proposal, based on the reasons given
+- Shared task board update after everyone affected consents
+- Teacher support request with a name-free summary, and one piece of teacher guidance
+- Course setup: AI-listed grouping strategies and a seeded grouping algorithm on simulated students
+
+### Not built
+
+- Personal AI agents, or any agent-to-agent communication
+- Multi-agent orchestration: every AI step here is a single model call
+- Persistent memory across sessions
+- Real-time sync between devices, accounts, and access control
+- Calendar or task-tool integration
+- Course progress tracking
+
 ## Demo flow
 
 **Before the project: the teacher sets up the course**
@@ -34,9 +59,10 @@ GroupMind follows a course from setup to teamwork. The teacher sets the learning
 5. Chris raises an issue: he spends too much time fixing other people's work.
 6. The AI restates it as one member's perspective, not as fact, and proposes changes to specific tasks. Each change cites the teacher's goal or rule it is based on.
 7. Each member whose work would change consents or declines. A decline needs a reason. There is no majority vote.
-8. If everyone affected consents, the shared task board updates.
-9. If the team cannot agree, it can share a team-level summary with the teacher. The summary contains no names and no quotes, and says which goal or rule the team is finding hard.
-10. The teacher picks or edits one AI-suggested message and sends it. It appears on the team's board.
+8. After a decline, the team can ask the AI to revise the proposal once. The revision is built around the reasons given, says what changed, and clears every earlier answer, so everyone affected decides again.
+9. If everyone affected consents, the shared task board updates.
+10. If the team cannot agree, it can share a team-level summary with the teacher. The summary contains no names and no quotes, and says which goal or rule the team is finding hard.
+11. The teacher picks or edits one AI-suggested message and sends it. It appears on the team's board.
 
 ## Design principles
 
@@ -46,7 +72,8 @@ GroupMind follows a course from setup to teamwork. The teacher sets the learning
 - **No surveillance.** The teacher view shows nothing about a team's process until the team asks for support.
 - **The AI never places a student in a team.** It lists strategies. The teacher chooses. A fixed, repeatable algorithm does the grouping, and the screen shows the strategy, seed, and algorithm version.
 - **Evidence is labeled, not implied.** Each grouping strategy shows how strong its research support is, including "to be tested".
-- **Honest fallbacks.** If the live AI call fails, the app shows a built-in proposal labeled "Sample proposal (not generated live)".
+- **Honest fallbacks.** If the live AI call fails, the app shows a built-in proposal labeled "Sample proposal (not generated live)". If a revision fails, the original proposal stays and the team sees an error. A sample never stands in for a revision.
+- **The AI never agrees on someone's behalf.** A revision does not move declined work onto another member, and anyone who would take on something new is asked for their own consent.
 
 ## What is simulated
 
