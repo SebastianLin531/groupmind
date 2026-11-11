@@ -1,7 +1,46 @@
 // All app state lives here: mock data, initial state, and the reducer.
 // State is kept in the browser only (React state + localStorage).
 
-import type { AppState, Member, MemberId, Proposal, RoleId, Task } from "./types";
+import { SAMPLE_SYLLABUS, formGroups } from "./formation";
+import type { StrategyId, StrategySuggestion } from "./formation";
+import type {
+  AppState,
+  CourseContext,
+  Member,
+  MemberId,
+  Proposal,
+  RoleId,
+  Task,
+} from "./types";
+
+/** Set to false to hide course setup and fall back to the negotiation-only demo. */
+export const SHOW_COURSE_SETUP = true;
+
+/** The teacher's goals and rules. They travel into the student negotiation. */
+export const COURSE_CONTEXT: CourseContext = {
+  learningGoals: [
+    {
+      id: "G1",
+      text: "Every member can explain the financial model, not only its owner.",
+    },
+    {
+      id: "G2",
+      text: "Every member contributes analysis, not only formatting.",
+    },
+  ],
+  collaborationRules: [
+    { id: "R1", text: "Rework goes back to the person who wrote the section." },
+    {
+      id: "R2",
+      text: "Sections are handed over in the shared template two days before a deadline.",
+    },
+  ],
+};
+
+/** "G1" -> "Goal 1", "R2" -> "Rule 2". */
+export function contextLabel(id: string): string {
+  return `${id.startsWith("G") ? "Goal" : "Rule"} ${id.slice(1)}`;
+}
 
 export const MEMBERS: Member[] = [
   { id: "alex", name: "Alex", focus: "Market research" },
@@ -34,7 +73,8 @@ export const INITIAL_TASKS: Task[] = [
   {
     id: "task-slides",
     title: "Slide integration",
-    detail: "Combine every section into the final pitch deck and fix inconsistencies.",
+    detail:
+      "Combine every section into the final pitch deck and fix inconsistencies.",
     ownerId: "chris",
   },
   {
@@ -48,22 +88,30 @@ export const INITIAL_TASKS: Task[] = [
 export const DEFAULT_ISSUE_TEXT =
   "I'm spending too much time fixing other people's work. I don't think our workload is fair.";
 
-export const TEAM_NAME = "Team 3 - Startup pitch project";
+export const TEAM_NAME = "Sample team - Startup pitch project";
 
 /** The only status line the teacher sees. It names no one and quotes no one. */
 export const SUPPORT_STATUS_LINE =
   "The team tried one proposal. It was not agreed, because at least one affected member could not take on the change.";
 
-export const STORAGE_KEY = "groupmind-state-v1";
+export const STORAGE_KEY = "groupmind-state-v2";
 
 export function createInitialState(): AppState {
   return {
-    currentRole: "chris",
+    currentRole: SHOW_COURSE_SETUP ? "teacher" : "chris",
     tasks: INITIAL_TASKS.map((task) => ({ ...task })),
     issue: null,
     proposal: null,
     supportRequested: false,
     teacherGuidance: null,
+    setup: {
+      stage: "brief",
+      syllabus: SAMPLE_SYLLABUS,
+      suggestions: [],
+      suggestionsAreSample: false,
+      strategyId: null,
+      groups: [],
+    },
   };
 }
 
@@ -103,21 +151,34 @@ function respond(
 
   const responses = {
     ...proposal.responses,
-    [memberId]: decision === "decline" ? { decision, reason: trimmedReason } : { decision },
+    [memberId]:
+      decision === "decline"
+        ? { decision, reason: trimmedReason }
+        : { decision },
   };
 
-  const anyDecline = affected.some((id) => responses[id]?.decision === "decline");
-  const allConsent = affected.every((id) => responses[id]?.decision === "consent");
+  const anyDecline = affected.some(
+    (id) => responses[id]?.decision === "decline",
+  );
+  const allConsent = affected.every(
+    (id) => responses[id]?.decision === "consent",
+  );
 
   if (!allConsent) {
     return {
       ...state,
-      proposal: { ...proposal, responses, status: anyDecline ? "needs_revision" : "open" },
+      proposal: {
+        ...proposal,
+        responses,
+        status: anyDecline ? "needs_revision" : "open",
+      },
     };
   }
 
   const tasks = state.tasks.map((task) => {
-    const change = proposal.changes.find((candidate) => candidate.taskId === task.id);
+    const change = proposal.changes.find(
+      (candidate) => candidate.taskId === task.id,
+    );
     if (!change) return { ...task, changed: false };
     return {
       ...task,
@@ -128,7 +189,11 @@ function respond(
     };
   });
 
-  return { ...state, tasks, proposal: { ...proposal, responses, status: "applied" } };
+  return {
+    ...state,
+    tasks,
+    proposal: { ...proposal, responses, status: "applied" },
+  };
 }
 
 export type Action =
@@ -136,9 +201,24 @@ export type Action =
   | { type: "switch_role"; role: RoleId }
   | { type: "raise_issue"; raisedBy: MemberId; text: string }
   | { type: "set_proposal"; proposal: Proposal }
-  | { type: "respond"; memberId: MemberId; decision: "consent" | "decline"; reason?: string }
+  | {
+      type: "respond";
+      memberId: MemberId;
+      decision: "consent" | "decline";
+      reason?: string;
+    }
   | { type: "request_support" }
   | { type: "send_guidance"; text: string }
+  | {
+      type: "set_suggestions";
+      syllabus: string;
+      suggestions: StrategySuggestion[];
+      isSample: boolean;
+    }
+  | { type: "choose_strategy"; strategyId: StrategyId }
+  | { type: "load_survey_responses" }
+  | { type: "back_to_options" }
+  | { type: "publish_groups" }
   | { type: "reset" };
 
 export function reducer(state: AppState, action: Action): AppState {
@@ -167,6 +247,52 @@ export function reducer(state: AppState, action: Action): AppState {
       if (!state.supportRequested || !text) return state;
       return { ...state, teacherGuidance: text };
     }
+    case "set_suggestions":
+      return {
+        ...state,
+        setup: {
+          ...state.setup,
+          stage: "options",
+          syllabus: action.syllabus,
+          suggestions: action.suggestions,
+          suggestionsAreSample: action.isSample,
+        },
+      };
+    case "choose_strategy":
+      return {
+        ...state,
+        setup: {
+          ...state.setup,
+          stage: "survey",
+          strategyId: action.strategyId,
+          groups: [],
+        },
+      };
+    case "load_survey_responses":
+      // The algorithm, not the AI, forms the groups from the survey answers.
+      if (!state.setup.strategyId) return state;
+      return {
+        ...state,
+        setup: {
+          ...state.setup,
+          stage: "grouped",
+          groups: formGroups(state.setup.strategyId),
+        },
+      };
+    case "back_to_options":
+      if (state.setup.stage === "published") return state;
+      return {
+        ...state,
+        setup: {
+          ...state.setup,
+          stage: "options",
+          strategyId: null,
+          groups: [],
+        },
+      };
+    case "publish_groups":
+      if (state.setup.stage !== "grouped") return state;
+      return { ...state, setup: { ...state.setup, stage: "published" } };
     case "reset":
       return createInitialState();
     default:

@@ -19,12 +19,19 @@ How to work:
 - You have heard from one person only. Write perspectiveSummary as that student's perspective ("From Chris's perspective, ..."), never as an established fact, and say that the other members have not shared their view yet.
 - Never judge the quality of any member's work, effort, or character. Describe situations and processes, not people.
 - Prefer process changes first: a shared hand-off format, clearer definitions of done, earlier drafts, clearer scope for a task. Move ownership of a task only when a process change cannot address the concern.
-- Propose 1 to 2 changes. Each change edits one existing task, referenced by its exact taskId. Use newDetail to redefine what the task covers, newTitle to rename it, newOwnerId to move it. Set the fields you do not change to null.
+- A change to one task must not create new work for anyone except that task's owner, because only the owner of a changed task is asked for consent. If your idea means another member takes on something new (for example, fixing items flagged in their own section), write that as its own change to that member's task, so they get to consent or decline. Never describe new work for teammates only inside a reason.
+- Propose 1 to 3 changes. Each change edits one existing task, referenced by its exact taskId. Use newDetail to redefine what the task covers, newTitle to rename it, newOwnerId to move it. Set the fields you do not change to null.
 - Do not solve the concern by quietly adding work to someone. When a change adds work for a member, say so plainly in reason, because that member must consent before anything changes.
 - reason is one plain sentence, at most two, that every teammate can read without feeling accused. It talks only about this one change and its owner. Do not suggest that other members or other sections could adopt the same change later: teammates read that as their own work changing too, and it is not part of this proposal.
 - newDetail is at most 30 words. The whole proposal has to fit on one screen next to the task board.
 - teamSummary is for the course teacher. Write two sentences at team level about what the team is working through. It must not contain any student's name and must not reveal who raised the concern.
 - teacherPromptOptions is exactly 3 short messages the teacher could send to the whole team, each a different kind of support: (1) a reflective question, (2) a clarification of expectations the team could agree on, (3) a short structured activity. They help the team work it out themselves. They do not name students and do not give the answer.
+
+
+The teacher's course design:
+- The input may include teacherLearningGoals and teacherCollaborationRules, each with an id. The teacher set these before the project started, and they are the reason this team exists. A proposal must not work against a learning goal. For example, if a goal says every member should understand the financial model, do not hand all financial work to one person.
+- For each change, list in groundedIn the ids of the goals or rules that the change serves. Use only ids that appear in the input. If a change rests on none of them, or the lists are empty, return an empty array. Do not stretch to cite one.
+- When goals or rules are present, teamSummary also says which goal or rule the team is finding hard to meet, by its text, still without naming any student.
 
 Write in plain, warm, direct English. Keep every field short.`;
 
@@ -40,12 +47,14 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return Response.json({ error: "Invalid request." }, { status: 400 });
   }
-  const { issue, tasks } = parsed.data;
+  const { issue, tasks, courseContext } = parsed.data;
   const raisedByName = memberName(issue.raisedBy);
 
   const sampleResponse = (reason: string) => {
     console.warn(`[proposal] using sample proposal: ${reason}`);
-    return Response.json({ proposal: buildSampleProposal(tasks, raisedByName) });
+    return Response.json({
+      proposal: buildSampleProposal(tasks, raisedByName, courseContext),
+    });
   };
 
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -56,6 +65,9 @@ export async function POST(request: Request) {
     members: MEMBERS.map((member) => ({ id: member.id, name: member.name })),
     tasks,
     concern: { raisedBy: raisedByName, text: issue.text },
+    // Set by the teacher before the project started. Absent when no course is set up.
+    teacherLearningGoals: courseContext?.learningGoals ?? [],
+    teacherCollaborationRules: courseContext?.collaborationRules ?? [],
   };
 
   try {
@@ -78,18 +90,31 @@ export async function POST(request: Request) {
       },
     });
 
-    if (response.stop_reason === "refusal") return sampleResponse("model declined");
-    if (!response.parsed_output) return sampleResponse(`no parsed output (${response.stop_reason})`);
+    if (response.stop_reason === "refusal")
+      return sampleResponse("model declined");
+    if (!response.parsed_output)
+      return sampleResponse(`no parsed output (${response.stop_reason})`);
 
-    const proposal = buildProposal(response.parsed_output, tasks, false);
+    const proposal = buildProposal(
+      response.parsed_output,
+      tasks,
+      false,
+      courseContext,
+    );
     if (!proposal) return sampleResponse("model output had no valid changes");
 
     return Response.json({ proposal });
   } catch (error) {
-    if (error instanceof Anthropic.AuthenticationError) return sampleResponse("authentication failed");
-    if (error instanceof Anthropic.RateLimitError) return sampleResponse("rate limited");
-    if (error instanceof Anthropic.APIConnectionError) return sampleResponse("connection error or timeout");
-    if (error instanceof Anthropic.APIError) return sampleResponse(`API error ${error.status}`);
-    return sampleResponse(error instanceof Error ? error.message : "unknown error");
+    if (error instanceof Anthropic.AuthenticationError)
+      return sampleResponse("authentication failed");
+    if (error instanceof Anthropic.RateLimitError)
+      return sampleResponse("rate limited");
+    if (error instanceof Anthropic.APIConnectionError)
+      return sampleResponse("connection error or timeout");
+    if (error instanceof Anthropic.APIError)
+      return sampleResponse(`API error ${error.status}`);
+    return sampleResponse(
+      error instanceof Error ? error.message : "unknown error",
+    );
   }
 }

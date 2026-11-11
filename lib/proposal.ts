@@ -3,7 +3,13 @@
 
 import { z } from "zod";
 import { MEMBERS } from "./state";
-import type { MemberId, Proposal, ProposalChange, Task } from "./types";
+import type {
+  CourseContext,
+  MemberId,
+  Proposal,
+  ProposalChange,
+  Task,
+} from "./types";
 
 const MEMBER_IDS = ["alex", "bella", "chris", "dana"] as const;
 
@@ -18,6 +24,7 @@ export const AiProposalSchema = z.object({
       newTitle: z.string().nullable(),
       newDetail: z.string().nullable(),
       reason: z.string(),
+      groundedIn: z.array(z.string()),
     }),
   ),
   teacherPromptOptions: z.array(z.string()),
@@ -42,6 +49,16 @@ export const ProposalRequestSchema = z.object({
     )
     .min(1)
     .max(12),
+  courseContext: z
+    .object({
+      learningGoals: z
+        .array(z.object({ id: z.string().max(8), text: z.string().max(300) }))
+        .max(5),
+      collaborationRules: z
+        .array(z.object({ id: z.string().max(8), text: z.string().max(300) }))
+        .max(5),
+    })
+    .optional(),
 });
 
 export type ProposalRequest = z.infer<typeof ProposalRequestSchema>;
@@ -58,7 +75,9 @@ const DEFAULT_TEACHER_OPTIONS = [
 type TaskInput = Pick<Task, "id" | "title" | "detail" | "ownerId">;
 
 function mentionsAMember(text: string): boolean {
-  return MEMBERS.some((member) => new RegExp(`\\b${member.name}\\b`, "i").test(text));
+  return MEMBERS.some((member) =>
+    new RegExp(`\\b${member.name}\\b`, "i").test(text),
+  );
 }
 
 /**
@@ -69,7 +88,17 @@ export function buildProposal(
   raw: AiProposal,
   tasks: TaskInput[],
   isSample: boolean,
+  courseContext?: CourseContext,
 ): Proposal | null {
+  // The model may only cite goals and rules the teacher actually set.
+  const validContextIds = new Set(
+    courseContext
+      ? [
+          ...courseContext.learningGoals,
+          ...courseContext.collaborationRules,
+        ].map((x) => x.id)
+      : [],
+  );
   const changes: ProposalChange[] = [];
   const seenTaskIds = new Set<string>();
 
@@ -78,7 +107,9 @@ export function buildProposal(
     if (!task || seenTaskIds.has(task.id)) continue;
 
     const newOwnerId =
-      change.newOwnerId && change.newOwnerId !== task.ownerId ? change.newOwnerId : undefined;
+      change.newOwnerId && change.newOwnerId !== task.ownerId
+        ? change.newOwnerId
+        : undefined;
     const newTitle = change.newTitle?.trim() || undefined;
     const newDetail = change.newDetail?.trim() || undefined;
     if (!newOwnerId && !newTitle && !newDetail) continue;
@@ -96,6 +127,9 @@ export function buildProposal(
       newDetail,
       reason: change.reason.trim(),
       affectedMemberIds: [...affected],
+      groundedIn: [
+        ...new Set(change.groundedIn.filter((id) => validContextIds.has(id))),
+      ],
     });
     if (changes.length === 3) break;
   }
@@ -112,10 +146,15 @@ export function buildProposal(
   return {
     perspectiveSummary: raw.perspectiveSummary.trim(),
     // The teacher summary must never name a student.
-    teamSummary: teamSummary && !mentionsAMember(teamSummary) ? teamSummary : GENERIC_TEAM_SUMMARY,
+    teamSummary:
+      teamSummary && !mentionsAMember(teamSummary)
+        ? teamSummary
+        : GENERIC_TEAM_SUMMARY,
     changes,
     teacherPromptOptions:
-      teacherPromptOptions.length > 0 ? teacherPromptOptions : DEFAULT_TEACHER_OPTIONS,
+      teacherPromptOptions.length > 0
+        ? teacherPromptOptions
+        : DEFAULT_TEACHER_OPTIONS,
     isSample,
     responses: {},
     status: "open",
@@ -123,7 +162,11 @@ export function buildProposal(
 }
 
 /** Shown, clearly labeled, when the live AI call is unavailable. */
-export function buildSampleProposal(tasks: TaskInput[], raisedByName: string): Proposal {
+export function buildSampleProposal(
+  tasks: TaskInput[],
+  raisedByName: string,
+  courseContext?: CourseContext,
+): Proposal {
   const sample: AiProposal = {
     perspectiveSummary: `From ${raisedByName}'s perspective, putting the deck together involves a lot of rework, because sections arrive in different formats. The other members have not shared their view yet.`,
     teamSummary:
@@ -137,6 +180,7 @@ export function buildSampleProposal(tasks: TaskInput[], raisedByName: string): P
           "Assemble the final deck from sections that already follow the shared template. Layout only, no content rework.",
         reason:
           "Integration stays one job, but fixing content goes back to the person who wrote it.",
+        groundedIn: ["R1"],
       },
       {
         taskId: "task-finance",
@@ -146,12 +190,13 @@ export function buildSampleProposal(tasks: TaskInput[], raisedByName: string): P
           "Build the revenue model and the first-year budget. Also check that the numbers match across all sections before hand-off.",
         reason:
           "Checking numbers is closest to the financial work. This adds work, so it needs the owner's consent.",
+        groundedIn: [],
       },
     ],
     teacherPromptOptions: DEFAULT_TEACHER_OPTIONS,
   };
 
-  const proposal = buildProposal(sample, tasks, true);
+  const proposal = buildProposal(sample, tasks, true, courseContext);
   if (proposal) return proposal;
 
   // The board no longer has the sample tasks: fall back to the first task.

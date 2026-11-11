@@ -5,7 +5,10 @@ import {
   DEFAULT_ISSUE_TEXT,
   MEMBERS,
   ROLE_LABELS,
+  COURSE_CONTEXT,
+  SHOW_COURSE_SETUP,
   STORAGE_KEY,
+  contextLabel,
   SUPPORT_STATUS_LINE,
   TEAM_NAME,
   affectedMembers,
@@ -13,6 +16,8 @@ import {
   memberName,
   reducer,
 } from "@/lib/state";
+import CourseSetup, { CourseGoals } from "@/components/CourseSetup";
+import { getStrategy } from "@/lib/formation";
 import { buildSampleProposal } from "@/lib/proposal";
 import type {
   AppState,
@@ -64,11 +69,16 @@ export default function Workspace() {
       detail,
       ownerId,
     }));
+    // The teacher's goals travel into the negotiation once teams are published.
+    const courseContext =
+      SHOW_COURSE_SETUP && state.setup.stage === "published"
+        ? COURSE_CONTEXT
+        : undefined;
     try {
       const response = await fetch("/api/proposal", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ issue, tasks }),
+        body: JSON.stringify({ issue, tasks, courseContext }),
       });
       if (!response.ok) throw new Error(`Request failed: ${response.status}`);
       const data = (await response.json()) as { proposal: Proposal };
@@ -76,7 +86,11 @@ export default function Workspace() {
     } catch {
       dispatch({
         type: "set_proposal",
-        proposal: buildSampleProposal(tasks, memberName(issue.raisedBy)),
+        proposal: buildSampleProposal(
+          tasks,
+          memberName(issue.raisedBy),
+          courseContext,
+        ),
       });
     } finally {
       setLoading(false);
@@ -116,10 +130,15 @@ export default function Workspace() {
       </header>
 
       {isTeacher ? (
-        <TeacherView
-          state={state}
-          onSend={(text) => dispatch({ type: "send_guidance", text })}
-        />
+        <div className="flex flex-col gap-6">
+          {SHOW_COURSE_SETUP && (
+            <CourseSetup setup={state.setup} dispatch={dispatch} />
+          )}
+          <TeacherView
+            state={state}
+            onSend={(text) => dispatch({ type: "send_guidance", text })}
+          />
+        </div>
       ) : (
         <TeamView
           state={state}
@@ -200,8 +219,33 @@ function TeamView({
   onRespond: RespondHandler;
   onRequestSupport: () => void;
 }) {
+  const published = SHOW_COURSE_SETUP && state.setup.stage === "published";
+  const strategyName = state.setup.strategyId
+    ? getStrategy(state.setup.strategyId).name
+    : "";
+
   return (
     <main className="flex flex-col gap-6">
+      {published && (
+        <section
+          aria-labelledby="course-heading"
+          className="rounded-lg border border-slate-200 bg-white p-4"
+        >
+          <h2
+            id="course-heading"
+            className="text-sm font-semibold text-slate-900"
+          >
+            Set by your teacher
+          </h2>
+          <p className="mt-1 text-xs text-slate-600">
+            Teams formed by: {strategyName}. You are viewing a fixed sample team
+            for this demo.
+          </p>
+          <div className="mt-3">
+            <CourseGoals />
+          </div>
+        </section>
+      )}
       {state.teacherGuidance && (
         <section
           aria-labelledby="guidance-heading"
@@ -358,6 +402,12 @@ function ProposalCard({
               <p className="mt-2 text-xs text-slate-600">
                 Why: {change.reason}
               </p>
+              {change.groundedIn && change.groundedIn.length > 0 && (
+                <p className="mt-2 text-xs font-medium text-violet-800">
+                  Based on your teacher&apos;s{" "}
+                  {change.groundedIn.map(contextLabel).join(", ")}
+                </p>
+              )}
               <p className="mt-2 text-xs font-medium text-indigo-800">
                 Needs consent from:{" "}
                 {change.affectedMemberIds.map(memberName).join(", ")}

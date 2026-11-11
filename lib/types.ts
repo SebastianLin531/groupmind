@@ -1,5 +1,7 @@
 // Single source of truth for the data shapes used across the app.
 
+import type { FormedGroup, StrategyId, StrategySuggestion } from "./formation";
+
 export type MemberId = "alex" | "bella" | "chris" | "dana";
 export type RoleId = MemberId | "teacher";
 
@@ -31,6 +33,26 @@ export interface ProposalChange {
   newDetail?: string;
   reason: string;
   affectedMemberIds: MemberId[];
+  /** Ids of the teacher's goals or rules this change is based on. */
+  groundedIn?: string[];
+}
+
+/** What the teacher sets before the project starts. */
+export interface CourseContext {
+  learningGoals: { id: string; text: string }[];
+  collaborationRules: { id: string; text: string }[];
+}
+
+export type SetupStage =
+  "brief" | "options" | "survey" | "grouped" | "published";
+
+export interface SetupState {
+  stage: SetupStage;
+  syllabus: string;
+  suggestions: StrategySuggestion[];
+  suggestionsAreSample: boolean;
+  strategyId: StrategyId | null;
+  groups: FormedGroup[];
 }
 
 export interface MemberResponse {
@@ -61,4 +83,5 @@ export interface AppState {
   proposal: Proposal | null;
   supportRequested: boolean;
   teacherGuidance: string | null;
+  setup: SetupState;
 }
