@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useReducer, useState } from "react";
+import type { ReactNode } from "react";
 import {
   DEFAULT_ISSUE_TEXT,
   MEMBERS,
@@ -164,86 +165,207 @@ export default function Workspace() {
     }
   }
 
+
   const isTeacher = state.currentRole === "teacher";
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
-      <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-              GroupMind
-            </h1>
-            <p className="text-sm text-slate-600">
-              An AI-powered collaborative learning platform. AI should help
-              students learn how to collaborate, not just help them finish
-              assignments.
-            </p>
+    <div className="flex w-full flex-1 flex-col">
+      <header className="border-b border-line bg-surface">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 pb-3 pt-4 sm:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-3">
+              <span
+                aria-hidden="true"
+                className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink text-white"
+              >
+                <LogoMark />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold leading-tight tracking-tight text-ink">
+                  GroupMind
+                </h1>
+                <p className="mt-0.5 max-w-2xl text-[13px] leading-snug text-muted">
+                  An AI-powered collaborative learning platform. AI should help
+                  students learn how to collaborate, not just help them finish
+                  assignments.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => dispatch({ type: "reset" })}
+              className="btn btn-ghost btn-sm shrink-0"
+            >
+              Reset demo
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => dispatch({ type: "reset" })}
-            className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Reset demo
-          </button>
+          <p className="flex items-start gap-2 rounded-inner border border-note-line bg-note-soft px-3 py-2 text-[13px] font-medium leading-snug text-note">
+            <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Demo mode: one browser simulates 4 students and 1 teacher. All
+              data is mock data.
+            </span>
+          </p>
         </div>
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Demo mode: one browser simulates 4 students and 1 teacher. All data is
-          mock data.
-        </p>
-        <RoleSwitcher
-          current={state.currentRole}
-          onSwitch={(role) => dispatch({ type: "switch_role", role })}
-        />
-        <p className="text-sm font-medium text-slate-700">
+      </header>
+
+      <div className="z-30 border-b border-line bg-surface sm:sticky sm:top-0">
+        <div className="mx-auto w-full max-w-6xl px-4 py-2 sm:px-6">
+          <RoleSwitcher
+            current={state.currentRole}
+            onSwitch={(role) => dispatch({ type: "switch_role", role })}
+          />
+        </div>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-5 px-4 pb-16 pt-4 sm:px-6">
+        <p className="text-sm font-medium text-ink-2">
           {isTeacher
             ? "Phase 1 · Before class: design the course and form teams. Team support requests appear below."
             : "Phase 2 · During the project: plan your week, share the work, and negotiate changes as a team."}
         </p>
-      </header>
 
-      {isTeacher ? (
-        <div className="flex flex-col gap-6">
-          {SHOW_COURSE_SETUP && (
-            <CourseSetup setup={state.setup} dispatch={dispatch} />
-          )}
-          <TeacherView
+        {isTeacher ? (
+          <div className="flex flex-col gap-5">
+            {SHOW_COURSE_SETUP && (
+              <CourseSetup setup={state.setup} dispatch={dispatch} />
+            )}
+            <TeacherView
+              state={state}
+              onSend={(text) => dispatch({ type: "send_guidance", text })}
+            />
+          </div>
+        ) : (
+          <TeamView
             state={state}
-            onSend={(text) => dispatch({ type: "send_guidance", text })}
+            currentMember={state.currentRole as MemberId}
+            loading={loading}
+            onRaiseIssue={(text) => {
+              const issue: Issue = {
+                raisedBy: state.currentRole as MemberId,
+                text,
+              };
+              dispatch({ type: "raise_issue", ...issue });
+              void requestProposal(issue);
+            }}
+            onRetry={() => {
+              if (state.issue) void requestProposal(state.issue);
+            }}
+            onRespond={(decision, reason) =>
+              dispatch({
+                type: "respond",
+                memberId: state.currentRole as MemberId,
+                decision,
+                reason,
+              })
+            }
+            onRequestSupport={() => dispatch({ type: "request_support" })}
+            revising={revising}
+            revisionError={revisionError}
+            onRequestRevision={() => void requestRevision()}
           />
-        </div>
-      ) : (
-        <TeamView
-          state={state}
-          currentMember={state.currentRole as MemberId}
-          loading={loading}
-          onRaiseIssue={(text) => {
-            const issue: Issue = {
-              raisedBy: state.currentRole as MemberId,
-              text,
-            };
-            dispatch({ type: "raise_issue", ...issue });
-            void requestProposal(issue);
-          }}
-          onRetry={() => {
-            if (state.issue) void requestProposal(state.issue);
-          }}
-          onRespond={(decision, reason) =>
-            dispatch({
-              type: "respond",
-              memberId: state.currentRole as MemberId,
-              decision,
-              reason,
-            })
-          }
-          onRequestSupport={() => dispatch({ type: "request_support" })}
-          revising={revising}
-          revisionError={revisionError}
-          onRequestRevision={() => void requestRevision()}
-        />
-      )}
+        )}
+      </div>
     </div>
+  );
+}
+
+/* ---------- Small inline icons (decorative, always paired with text) ---------- */
+
+type IconProps = { className?: string };
+
+function Svg({
+  className,
+  children,
+}: IconProps & { children: ReactNode }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className ?? "h-3.5 w-3.5"}
+    >
+      {children}
+    </svg>
+  );
+}
+
+function LogoMark() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5">
+      <circle cx="6" cy="7" r="2.6" fill="currentColor" />
+      <circle cx="14" cy="7" r="2.6" fill="currentColor" opacity="0.7" />
+      <circle cx="10" cy="14" r="2.6" fill="currentColor" opacity="0.45" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M4.5 10.5l3.5 3.5 7.5-8" />
+    </Svg>
+  );
+}
+
+function CrossIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M5.5 5.5l9 9M14.5 5.5l-9 9" />
+    </Svg>
+  );
+}
+
+function ClockIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <circle cx="10" cy="10" r="7" />
+      <path d="M10 6.5V10l2.5 1.5" />
+    </Svg>
+  );
+}
+
+function LockIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="4.5" y="9" width="11" height="7.5" rx="2" />
+      <path d="M7 9V6.8a3 3 0 016 0V9" />
+    </Svg>
+  );
+}
+
+function PinIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M12 3l5 5-3 1-2.5 2.5.5 3.5-7-7 3.5.5L11 6z" />
+      <path d="M7.5 12.5l-4 4" />
+    </Svg>
+  );
+}
+
+function InfoIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <circle cx="10" cy="10" r="7.5" />
+      <path d="M10 9v4.5M10 6.5v.01" />
+    </Svg>
+  );
+}
+
+function SparkIcon({ className }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className ?? "h-4 w-4"}
+    >
+      <path d="M10 1.5l1.9 5.1a2 2 0 001.2 1.2l5.100 1.900-5.100 1.900a2 2 0 00-1.200 1.200L10 17.900l-1.900-5.100a2 2 0 00-1.200-1.200L1.800 9.700l5.100-1.900a2 2 0 001.200-1.200z" />
+    </svg>
   );
 }
 
@@ -255,8 +377,11 @@ function RoleSwitcher({
   onSwitch: (role: RoleId) => void;
 }) {
   return (
-    <nav aria-label="Viewing as" className="flex flex-wrap items-center gap-2">
-      <span className="text-sm font-medium text-slate-600">Viewing as</span>
+    <nav
+      aria-label="Viewing as"
+      className="flex flex-wrap items-center gap-x-2 gap-y-1.5"
+    >
+      <span className="eyebrow mr-1 w-full sm:w-auto">Viewing as</span>
       {ROLE_ORDER.map((role) => {
         const active = role === current;
         return (
@@ -267,11 +392,13 @@ function RoleSwitcher({
             onClick={() => onSwitch(role)}
             className={
               active
-                ? "rounded-full bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white"
-                : "rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                ? "inline-flex min-h-9 items-center gap-1.5 rounded-full border border-ink bg-ink py-1 pl-1 pr-3 text-sm font-semibold text-white"
+                : "inline-flex min-h-9 items-center gap-1.5 rounded-full border border-line bg-surface py-1 pl-1 pr-3 text-sm font-medium text-ink-2 hover:border-line-strong hover:bg-sunken"
             }
           >
+            <Avatar who={role} small />
             {ROLE_LABELS[role]}
+            {active && <CheckIcon className="h-3.5 w-3.5" />}
           </button>
         );
       })}
@@ -308,178 +435,221 @@ function TeamView({
     : "";
 
   return (
-    <main className="flex flex-col gap-6">
-      {published && (
-        <section
-          aria-labelledby="course-heading"
-          className="rounded-lg border border-slate-200 bg-white p-4"
-        >
-          <h2
-            id="course-heading"
-            className="text-sm font-semibold text-slate-900"
+    <main className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8">
+      {/* Feed column: the team thread is the centre of the student view. */}
+      <div className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-3">
+        {state.teacherGuidance && (
+          <section
+            aria-labelledby="guidance-heading"
+            className="rounded-card border border-teacher-line bg-teacher-soft p-4"
           >
-            Set by your teacher
-          </h2>
-          <p className="mt-1 text-xs text-slate-600">
-            Teams formed by: {strategyName}. You are viewing a fixed sample team
-            for this demo.
-          </p>
-          <div className="mt-3">
-            <CourseGoals />
-          </div>
-        </section>
-      )}
-      {state.teacherGuidance && (
-        <section
-          aria-labelledby="guidance-heading"
-          className="rounded-lg border-2 border-violet-300 bg-violet-50 p-4"
-        >
-          <div className="flex gap-3">
-            <Avatar who="teacher" />
-            <div className="min-w-0">
-              <h2
-                id="guidance-heading"
-                className="text-sm font-semibold text-violet-900"
-              >
-                From your teacher{" "}
-                <span className="font-normal text-violet-700">
-                  &middot; pinned
-                </span>
-              </h2>
-              <p className="mt-1 text-[15px] leading-relaxed text-violet-950">
-                {state.teacherGuidance}
-              </p>
-            </div>
-          </div>
-        </section>
-      )}
-      <MyWeek tasks={state.tasks} currentMember={currentMember} />
-      <TaskBoard tasks={state.tasks} currentMember={currentMember} />
-      {state.issue ? (
-        <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">Team thread</h2>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4">
             <div className="flex gap-3">
-              <Avatar who={state.issue.raisedBy} />
-              <div className="min-w-0">
-                <p className="text-sm">
-                  <span className="font-semibold text-slate-900">
-                    {memberName(state.issue.raisedBy)}
-                  </span>{" "}
-                  <span className="text-slate-500">
-                    @{state.issue.raisedBy} &middot; Issue raised by{" "}
-                    {memberName(state.issue.raisedBy)}
-                  </span>
-                </p>
-                <p className="mt-1 text-[15px] leading-relaxed text-slate-900">
-                  {state.issue.text}
+              <Avatar who="teacher" />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2
+                    id="guidance-heading"
+                    className="text-sm font-bold text-teacher-strong"
+                  >
+                    From your teacher{" "}
+                    <span className="font-normal text-teacher">
+                      &middot; pinned
+                    </span>
+                  </h2>
+                  <PinIcon className="h-4 w-4 text-teacher" />
+                </div>
+                <p className="mt-1 text-[15px] leading-relaxed text-ink">
+                  {state.teacherGuidance}
                 </p>
               </div>
             </div>
           </section>
-          {state.proposal ? (
-            <>
-              <ProposalCard
-                proposal={state.proposal}
-                tasks={state.tasks}
-                key={`${currentMember}-${state.proposal.isRevised ? "revised" : "first"}`}
-                currentMember={currentMember}
-                onRespond={onRespond}
-              />
-              {state.proposal.status === "needs_revision" &&
-                !state.proposal.isRevised && (
-                  <section
-                    aria-labelledby="revise-heading"
-                    className="rounded-lg border border-indigo-200 bg-white p-4"
-                  >
-                    <h2
-                      id="revise-heading"
-                      className="text-sm font-semibold text-slate-900"
-                    >
-                      Try a different arrangement
-                    </h2>
-                    <p className="mt-1 text-xs text-slate-600">
-                      The facilitator rewrites the proposal around the reasons
-                      given. One revision only. Everyone affected decides again
-                      from scratch.
-                    </p>
-                    <button
-                      type="button"
-                      disabled={revising}
-                      aria-busy={revising}
-                      onClick={onRequestRevision}
-                      className="mt-3 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                    >
-                      {revising
-                        ? "Revising the proposal..."
-                        : "Ask AI to revise proposal"}
-                    </button>
-                    {revisionError && (
-                      <p role="alert" className="mt-3 text-sm text-rose-800">
-                        {revisionError}
-                      </p>
-                    )}
-                  </section>
-                )}
-              {state.proposal.status === "needs_revision" && (
-                <SupportRequest
+        )}
+
+        {state.issue ? (
+          <>
+            <h2 className="px-1 text-lg font-bold tracking-tight text-ink">
+              Team thread
+            </h2>
+            <section className="card p-4">
+              <div className="flex gap-3">
+                <Avatar who={state.issue.raisedBy} />
+                <div className="min-w-0">
+                  <p className="text-sm leading-snug">
+                    <span className="font-bold text-ink">
+                      {memberName(state.issue.raisedBy)}
+                    </span>{" "}
+                    <span className="text-muted">
+                      @{state.issue.raisedBy} &middot; Issue raised by{" "}
+                      {memberName(state.issue.raisedBy)}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-[15px] leading-relaxed text-ink">
+                    {state.issue.text}
+                  </p>
+                </div>
+              </div>
+            </section>
+            {state.proposal ? (
+              <>
+                <ProposalCard
                   proposal={state.proposal}
-                  requested={state.supportRequested}
-                  onRequest={onRequestSupport}
+                  tasks={state.tasks}
+                  key={`${currentMember}-${state.proposal.isRevised ? "revised" : "first"}`}
+                  currentMember={currentMember}
+                  onRespond={onRespond}
                 />
-              )}
-            </>
-          ) : loading ? (
-            <p
-              role="status"
-              className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900"
-            >
-              The facilitator is reading the board and drafting a proposal. This
-              takes a few seconds.
-            </p>
-          ) : (
-            <div className="rounded-lg border border-slate-200 bg-white p-4">
-              <p className="text-sm text-slate-700">No proposal yet.</p>
-              <button
-                type="button"
-                onClick={onRetry}
-                className="mt-3 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                {state.proposal.status === "needs_revision" &&
+                  !state.proposal.isRevised && (
+                    <section
+                      aria-labelledby="revise-heading"
+                      className="rounded-card border border-ai-line bg-ai-soft p-4"
+                    >
+                      <div className="flex gap-3">
+                        <Avatar who="ai" small />
+                        <div className="min-w-0 flex-1">
+                          <h2
+                            id="revise-heading"
+                            className="text-sm font-bold text-ink"
+                          >
+                            Try a different arrangement
+                          </h2>
+                          <p className="mt-0.5 text-[13px] leading-snug text-ink-2">
+                            The facilitator rewrites the proposal around the
+                            reasons given. One revision only. Everyone affected
+                            decides again from scratch.
+                          </p>
+                          <button
+                            type="button"
+                            disabled={revising}
+                            aria-busy={revising}
+                            onClick={onRequestRevision}
+                            className="btn btn-ai mt-3 w-full sm:w-auto"
+                          >
+                            <SparkIcon />
+                            {revising
+                              ? "Revising the proposal..."
+                              : "Ask AI to revise proposal"}
+                          </button>
+                          {revisionError && (
+                            <p
+                              role="alert"
+                              className="mt-3 text-sm font-medium text-no-strong"
+                            >
+                              {revisionError}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  )}
+                {state.proposal.status === "needs_revision" && (
+                  <SupportRequest
+                    proposal={state.proposal}
+                    requested={state.supportRequested}
+                    onRequest={onRequestSupport}
+                  />
+                )}
+              </>
+            ) : loading ? (
+              <div
+                role="status"
+                className="flex gap-3 rounded-card border border-ai-line bg-ai-soft p-4"
               >
-                Ask the facilitator for a proposal
-              </button>
+                <Avatar who="ai" />
+                <div className="min-w-0">
+                  <p className="text-sm leading-snug">
+                    <span className="font-bold text-ink">GroupMind</span>{" "}
+                    <span className="chip chip-ai align-middle">AI</span>
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-ai-strong">
+                    The facilitator is reading the board and drafting a
+                    proposal. This takes a few seconds.
+                  </p>
+                  <span aria-hidden="true" className="mt-2 flex gap-1">
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="card p-4">
+                <p className="text-sm text-ink-2">No proposal yet.</p>
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="btn btn-ai mt-3"
+                >
+                  Ask the facilitator for a proposal
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <IssueForm
+            who={currentMember}
+            memberName={memberName(currentMember)}
+            onSubmit={onRaiseIssue}
+          />
+        )}
+      </div>
+
+      {/* Side column: light, supporting information. */}
+      <aside className="mx-auto flex w-full min-w-0 max-w-2xl flex-col gap-4 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:pr-1">
+        <MyWeek tasks={state.tasks} currentMember={currentMember} />
+        <TaskBoard tasks={state.tasks} currentMember={currentMember} />
+        {published && (
+          <section
+            aria-labelledby="course-heading"
+            className="rounded-card border border-line bg-surface/70 p-4"
+          >
+            <h2 id="course-heading" className="text-sm font-bold text-ink">
+              Set by your teacher
+            </h2>
+            <p className="mt-1 text-xs leading-snug text-muted">
+              Teams formed by: {strategyName}. You are viewing a fixed sample
+              team for this demo.
+            </p>
+            <div className="mt-3">
+              <CourseGoals stacked />
             </div>
-          )}
-        </div>
-      ) : (
-        <IssueForm
-          memberName={memberName(currentMember)}
-          onSubmit={onRaiseIssue}
-        />
-      )}
+          </section>
+        )}
+      </aside>
     </main>
   );
 }
 
+/** Per-person avatar tints. People are circles; the AI is a rounded square. */
 const AVATAR_STYLES: Record<string, string> = {
-  alex: "bg-amber-200 text-amber-900",
-  bella: "bg-rose-200 text-rose-900",
-  chris: "bg-sky-200 text-sky-900",
-  dana: "bg-emerald-200 text-emerald-900",
-  teacher: "bg-violet-200 text-violet-900",
-  ai: "bg-indigo-600 text-white",
+  alex: "bg-amber-200 text-amber-950",
+  bella: "bg-rose-200 text-rose-950",
+  chris: "bg-sky-200 text-sky-950",
+  dana: "bg-emerald-200 text-emerald-950",
+  teacher: "bg-teacher text-white",
+  ai: "bg-ai text-white",
 };
 
 /** Round initial badge, like a profile picture in a social feed. */
 function Avatar({ who, small }: { who: string; small?: boolean }) {
-  const label = who === "ai" ? "AI" : who.charAt(0).toUpperCase();
+  const isAi = who === "ai";
   return (
     <span
       aria-hidden="true"
-      className={`flex shrink-0 items-center justify-center rounded-full font-semibold ${
-        small ? "h-7 w-7 text-xs" : "h-10 w-10 text-sm"
-      } ${AVATAR_STYLES[who] ?? "bg-slate-200 text-slate-800"}`}
+      data-initial={isAi ? undefined : who.charAt(0).toUpperCase()}
+      className={`avatar flex shrink-0 items-center justify-center font-bold ${
+        isAi
+          ? small
+            ? "rounded-lg"
+            : "rounded-xl"
+          : "rounded-full"
+      } ${small ? "h-7 w-7 text-xs" : "h-10 w-10 text-sm"} ${
+        AVATAR_STYLES[who] ?? "bg-line text-ink"
+      }`}
     >
-      {label}
+      {/* The initial is drawn by CSS so it never mixes into button text. */}
+      {isAi && <SparkIcon className={small ? "h-3.5 w-3.5" : "h-5 w-5"} />}
     </span>
   );
 }
@@ -515,225 +685,257 @@ function ProposalCard({
   return (
     <section
       aria-labelledby="proposal-heading"
-      className="rounded-2xl border border-indigo-200 bg-white p-4"
+      className="rounded-card border border-ai-line bg-surface shadow-card"
     >
-      <div className="flex flex-wrap items-center gap-3">
+      {/* AI author strip: tinted so it never reads as a classmate's post. */}
+      <div className="flex flex-wrap items-center gap-3 rounded-t-card border-b border-ai-line bg-ai-soft px-4 py-3">
         <Avatar who="ai" />
-        <div className="min-w-0">
-          <p className="text-sm">
-            <span className="font-semibold text-slate-900">GroupMind</span>{" "}
-            <span className="text-slate-500">
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] leading-snug">
+            <span className="font-bold text-ink">GroupMind</span>{" "}
+            <span className="text-ink-2">
               @facilitator &middot; AI, replying to the team
             </span>
           </p>
           <h2
             id="proposal-heading"
-            className="text-lg font-semibold text-slate-900"
+            className="text-base font-bold leading-tight text-ai-strong"
           >
             {proposal.isRevised ? "Revised proposal" : "Facilitator proposal"}
           </h2>
         </div>
         {proposal.isSample && (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+          <span className="chip chip-note">
             Sample proposal (not generated live)
           </span>
         )}
       </div>
 
-      {proposal.isRevised && proposal.revisionNote && (
-        <p className="mt-3 rounded-md border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-950">
-          <span className="font-semibold">What changed:</span>{" "}
-          {proposal.revisionNote}
+      <div className="px-4 pb-4 pt-3">
+        {proposal.isRevised && proposal.revisionNote && (
+          <p className="mb-3 rounded-inner border border-ai-line bg-ai-soft px-3 py-2 text-sm leading-snug text-ink">
+            <span className="font-bold text-ai-strong">What changed:</span>{" "}
+            {proposal.revisionNote}
+          </p>
+        )}
+
+        <p className="text-sm leading-relaxed text-ink-2">
+          {proposal.perspectiveSummary}
         </p>
-      )}
 
-      <p className="mt-3 text-sm text-slate-700">
-        {proposal.perspectiveSummary}
-      </p>
-
-      <h3 className="mt-4 text-sm font-semibold text-slate-900">
-        Proposed changes
-      </h3>
-      <ol className="mt-2 flex flex-col gap-3">
-        {proposal.changes.map((change) => {
-          const task = tasks.find(
-            (candidate) => candidate.id === change.taskId,
-          );
-          return (
-            <li
-              key={change.taskId}
-              className="rounded-md border border-slate-200 bg-slate-50 p-3"
-            >
-              <p className="text-sm font-medium text-slate-900">
-                {task?.title ?? change.taskId}
-                {change.newTitle && !applied && <> &rarr; {change.newTitle}</>}
-              </p>
-              {change.newOwnerId && task && (
-                <p className="mt-1 text-sm text-slate-700">
-                  Owner:{" "}
-                  {applied ? "" : <>{memberName(task.ownerId)} &rarr; </>}
-                  {memberName(change.newOwnerId)}
-                </p>
-              )}
-              {change.newDetail && (
-                <p className="mt-1 text-sm text-slate-700">
-                  New scope: {change.newDetail}
-                </p>
-              )}
-              <p className="mt-2 text-xs text-slate-600">
-                Why: {change.reason}
-              </p>
-              {change.groundedIn && change.groundedIn.length > 0 && (
-                <p className="mt-2 text-xs font-medium text-violet-800">
-                  Based on your teacher&apos;s{" "}
-                  {change.groundedIn.map(contextLabel).join(", ")}
-                </p>
-              )}
-              <p className="mt-2 text-xs font-medium text-indigo-800">
-                Needs consent from:{" "}
-                {change.affectedMemberIds.map(memberName).join(", ")}
-              </p>
-            </li>
-          );
-        })}
-      </ol>
-
-      <h3 className="mt-4 text-sm font-semibold text-slate-900">Consent</h3>
-      <ul className="mt-2 flex flex-col gap-3 border-l-2 border-slate-200 pl-3">
-        {needsConsent.map((id) => {
-          const response = proposal.responses[id];
-          return (
-            <li key={id} className="flex gap-3">
-              <Avatar who={id} small />
-              <div className="min-w-0 text-sm text-slate-700">
-                <p>
-                  <span className="font-semibold text-slate-900">
-                    {memberName(id)}
-                  </span>{" "}
-                  {!response && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                      Waiting for an answer
-                    </span>
-                  )}
-                  {response?.decision === "consent" && (
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                      Consented
-                    </span>
-                  )}
-                  {response?.decision === "decline" && (
-                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">
-                      Declined
-                    </span>
-                  )}
-                </p>
-                {response?.decision === "decline" && (
-                  <p className="mt-1 text-[15px] leading-relaxed text-slate-900">
-                    {response.reason}
+        <h3 className="eyebrow mt-4">Proposed changes</h3>
+        <ol className="mt-1.5 flex flex-col gap-2">
+          {proposal.changes.map((change, index) => {
+            const task = tasks.find(
+              (candidate) => candidate.id === change.taskId,
+            );
+            return (
+              <li
+                key={change.taskId}
+                className="flex gap-2.5 rounded-inner border border-line bg-sunken p-3"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-bold tabular-nums text-white"
+                >
+                  {index + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold leading-snug text-ink">
+                    {task?.title ?? change.taskId}
+                    {change.newTitle && !applied && (
+                      <> &rarr; {change.newTitle}</>
+                    )}
                   </p>
-                )}
+                  {change.newOwnerId && task && (
+                    <p className="mt-1 text-sm leading-snug text-ink-2">
+                      <span className="text-muted">Owner:</span>{" "}
+                      {applied ? "" : <>{memberName(task.ownerId)} &rarr; </>}
+                      <span className="font-semibold text-ink">
+                        {memberName(change.newOwnerId)}
+                      </span>
+                    </p>
+                  )}
+                  {change.newDetail && (
+                    <p className="mt-1 text-sm leading-snug text-ink-2">
+                      <span className="text-muted">New scope:</span>{" "}
+                      {change.newDetail}
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-xs leading-snug text-muted">
+                    <span className="font-semibold">Why:</span> {change.reason}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <p className="chip chip-ai whitespace-normal">
+                      Needs consent from:{" "}
+                      {change.affectedMemberIds.map(memberName).join(", ")}
+                    </p>
+                    {change.groundedIn && change.groundedIn.length > 0 && (
+                      <p className="chip whitespace-normal border-teacher-line bg-teacher-soft text-teacher-strong">
+                        Based on your teacher&apos;s{" "}
+                        {change.groundedIn.map(contextLabel).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
+        <h3 className="eyebrow mt-4">Consent</h3>
+        <ul className="mt-1.5 flex flex-col gap-2">
+          {needsConsent.map((id) => {
+            const response = proposal.responses[id];
+            return (
+              <li key={id} className="flex gap-2.5">
+                <Avatar who={id} small />
+                <div className="min-w-0 flex-1 text-sm text-ink-2">
+                  <p className="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-bold text-ink">{memberName(id)}</span>{" "}
+                    {!response && (
+                      <span className="chip">
+                        <ClockIcon />
+                        Waiting for an answer
+                      </span>
+                    )}
+                    {response?.decision === "consent" && (
+                      <span className="chip chip-ok">
+                        <CheckIcon />
+                        Consented
+                      </span>
+                    )}
+                    {response?.decision === "decline" && (
+                      <span className="chip chip-no">
+                        <CrossIcon />
+                        Declined
+                      </span>
+                    )}
+                  </p>
+                  {response?.decision === "decline" && (
+                    <p className="mt-1 rounded-inner rounded-tl-sm border border-line bg-sunken px-3 py-2 text-[15px] leading-relaxed text-ink">
+                      {response.reason}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        {applied && (
+          <p
+            role="status"
+            className="mt-4 flex items-start gap-2 rounded-inner border border-ok-line bg-ok-soft p-3 text-sm font-semibold text-ok-strong"
+          >
+            <CheckIcon className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Everyone affected agreed. The task board is updated.</span>
+          </p>
+        )}
+
+        {proposal.status === "needs_revision" && (
+          <p
+            role="status"
+            className="mt-4 flex items-start gap-2 rounded-inner border border-no-line bg-no-soft p-3 text-sm font-medium text-no-strong"
+          >
+            <CrossIcon className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>Not agreed yet. Nothing on the board has changed.</span>
+          </p>
+        )}
+
+        {!applied && !isAffected && (
+          <>
+            <p className="mt-4 text-xs leading-snug text-muted">
+              Nothing changes until {needsConsent.map(memberName).join(" and ")}{" "}
+              {needsConsent.length === 1 ? "agrees" : "agree"}. There is no
+              majority vote.
+            </p>
+            <p className="mt-2 rounded-inner border border-line bg-sunken px-3 py-2 text-sm leading-snug text-ink-2">
+              {memberName(currentMember)}, these changes do not affect your
+              work, so your consent is not needed.
+            </p>
+          </>
+        )}
+
+        {/* Action bar: sticks to the bottom of the screen while the card is in view. */}
+        {!applied && isAffected && (
+          <div className="sticky bottom-3 z-20 mt-4 rounded-card border border-line-strong bg-surface p-3 shadow-bar">
+            <p className="text-xs leading-snug text-muted">
+              Nothing changes until {needsConsent.map(memberName).join(" and ")}{" "}
+              {needsConsent.length === 1 ? "agrees" : "agree"}. There is no
+              majority vote.
+            </p>
+
+            {!declining && (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={myResponse?.decision === "consent"}
+                  onClick={() => onRespond("consent")}
+                  className="btn btn-ok flex-1 sm:flex-none"
+                >
+                  <CheckIcon className="h-4 w-4" />
+                  {myResponse?.decision === "consent"
+                    ? "You consented"
+                    : "I consent"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeclining(true)}
+                  className="btn btn-ghost flex-1 sm:flex-none"
+                >
+                  {myResponse?.decision === "decline"
+                    ? "Change my reason"
+                    : "I can't agree to this yet"}
+                </button>
               </div>
-            </li>
-          );
-        })}
-      </ul>
+            )}
 
-      {applied && (
-        <p
-          role="status"
-          className="mt-4 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm font-medium text-emerald-900"
-        >
-          Everyone affected agreed. The task board is updated.
-        </p>
-      )}
-
-      {proposal.status === "needs_revision" && (
-        <p
-          role="status"
-          className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-900"
-        >
-          Not agreed yet. Nothing on the board has changed.
-        </p>
-      )}
-
-      {!applied && (
-        <p className="mt-4 text-xs text-slate-600">
-          Nothing changes until {needsConsent.map(memberName).join(" and ")}{" "}
-          {needsConsent.length === 1 ? "agrees" : "agree"}. There is no majority
-          vote.
-        </p>
-      )}
-
-      {!applied && !isAffected && (
-        <p className="mt-3 text-sm text-slate-700">
-          {memberName(currentMember)}, these changes do not affect your work, so
-          your consent is not needed.
-        </p>
-      )}
-
-      {!applied && isAffected && !declining && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={myResponse?.decision === "consent"}
-            onClick={() => onRespond("consent")}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            {myResponse?.decision === "consent" ? "You consented" : "I consent"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeclining(true)}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            {myResponse?.decision === "decline"
-              ? "Change my reason"
-              : "I can't agree to this yet"}
-          </button>
-        </div>
-      )}
-
-      {!applied && isAffected && declining && (
-        <form
-          className="mt-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!reason.trim()) return;
-            onRespond("decline", reason);
-            setDeclining(false);
-          }}
-        >
-          <label
-            htmlFor="decline-reason"
-            className="text-sm font-medium text-slate-900"
-          >
-            What makes this hard for you? Your team will see only what you write
-            here, not your calendar.
-          </label>
-          <textarea
-            id="decline-reason"
-            rows={2}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            className="mt-2 w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-          />
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="submit"
-              disabled={!reason.trim()}
-              className="rounded-md bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              Decline with this reason
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeclining(false)}
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Cancel
-            </button>
+            {declining && (
+              <form
+                className="mt-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!reason.trim()) return;
+                  onRespond("decline", reason);
+                  setDeclining(false);
+                }}
+              >
+                <label
+                  htmlFor="decline-reason"
+                  className="text-sm font-semibold leading-snug text-ink"
+                >
+                  What makes this hard for you? Your team will see only what you
+                  write here, not your calendar.
+                </label>
+                <textarea
+                  id="decline-reason"
+                  rows={2}
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  className="field mt-2"
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    disabled={!reason.trim()}
+                    className="btn btn-primary flex-1 sm:flex-none"
+                  >
+                    Decline with this reason
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeclining(false)}
+                    className="btn btn-ghost"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
-        </form>
-      )}
+        )}
+      </div>
     </section>
   );
 }
@@ -761,67 +963,67 @@ function MyWeek({
   return (
     <section
       aria-labelledby="week-heading"
-      className="rounded-lg border border-slate-200 bg-white p-4"
+      className="rounded-card border border-line bg-surface p-4"
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 id="week-heading" className="text-lg font-semibold text-slate-900">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="week-heading" className="text-sm font-bold text-ink">
           My week
         </h2>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+        <span className="chip">
+          <LockIcon />
           Private to {memberName(currentMember)}
         </span>
       </div>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Other commitments
-          </h3>
-          <ul className="mt-1 flex flex-col gap-1">
-            {plan.commitments.map((commitment) => (
-              <li key={commitment} className="text-sm text-slate-800">
-                {commitment}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Team work this week
-          </h3>
-          <p className="mt-1 text-sm text-slate-800">
-            <span className="font-semibold tabular-nums">{neededHours}h</span>{" "}
-            needed for my tasks,{" "}
-            <span className="font-semibold tabular-nums">
-              {plan.freeHours}h
-            </span>{" "}
-            free
-          </p>
-          <div
-            role="img"
-            aria-label={`${neededHours} of ${plan.freeHours} free hours used`}
-            className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200"
-          >
-            <div
-              className={
-                over > 0 ? "h-full bg-rose-500" : "h-full bg-emerald-500"
-              }
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-          <p
-            className={
-              over > 0
-                ? "mt-2 text-sm font-medium text-rose-800"
-                : "mt-2 text-sm font-medium text-emerald-800"
-            }
-          >
-            {over > 0
-              ? `Over by ${over}h this week`
-              : `Fits, with ${-over}h to spare`}
-          </p>
-        </div>
+
+      <p className="mt-3 text-sm text-ink-2">
+        <span className="text-lg font-bold tabular-nums text-ink">
+          {neededHours}h
+        </span>{" "}
+        needed for my tasks,{" "}
+        <span className="font-bold tabular-nums text-ink">
+          {plan.freeHours}h
+        </span>{" "}
+        free
+      </p>
+      <div
+        role="img"
+        aria-label={`${neededHours} of ${plan.freeHours} free hours used`}
+        className="mt-2 h-2 w-full overflow-hidden rounded-full bg-line"
+      >
+        <div
+          className={over > 0 ? "h-full bg-no" : "h-full bg-ok"}
+          style={{ width: `${percent}%` }}
+        />
       </div>
-      <p className="mt-3 text-xs text-slate-500">
+      <p
+        className={
+          over > 0
+            ? "mt-2 flex items-center gap-1 text-sm font-semibold text-no-strong"
+            : "mt-2 flex items-center gap-1 text-sm font-semibold text-ok-strong"
+        }
+      >
+        {over > 0 ? <CrossIcon /> : <CheckIcon />}
+        {over > 0
+          ? `Over by ${over}h this week`
+          : `Fits, with ${-over}h to spare`}
+      </p>
+
+      <h3 className="eyebrow mt-4">Other commitments</h3>
+      <ul className="mt-1 flex flex-col gap-1">
+        {plan.commitments.map((commitment) => (
+          <li
+            key={commitment}
+            className="flex gap-2 text-[13px] leading-snug text-ink-2"
+          >
+            <span
+              aria-hidden="true"
+              className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-line-strong"
+            />
+            {commitment}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 border-t border-line pt-2 text-xs leading-snug text-muted">
         Your teammates and your teacher do not see this. When you answer a
         proposal, you choose what to share. Hours are estimates from mock data.
       </p>
@@ -837,62 +1039,57 @@ function TaskBoard({
   currentMember: MemberId;
 }) {
   return (
-    <section aria-labelledby="board-heading">
-      <h2
-        id="board-heading"
-        className="mb-3 text-lg font-semibold text-slate-900"
-      >
+    <section
+      aria-labelledby="board-heading"
+      className="rounded-card border border-line bg-surface p-4"
+    >
+      <h2 id="board-heading" className="text-sm font-bold text-ink">
         Team task board
       </h2>
-      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <ul className="mt-2 flex flex-col divide-y divide-line">
         {MEMBERS.map((member) => {
           const memberTasks = tasks.filter(
             (task) => task.ownerId === member.id,
           );
           const isMe = member.id === currentMember;
           return (
-            <li
-              key={member.id}
-              className={
-                isMe
-                  ? "rounded-lg border-2 border-indigo-500 bg-white p-3"
-                  : "rounded-lg border border-slate-200 bg-white p-3"
-              }
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-900">
+            <li key={member.id} className="py-3 first:pt-1 last:pb-0">
+              <div className="flex items-center gap-2">
+                <Avatar who={member.id} small />
+                <span className="text-sm font-bold text-ink">
                   {member.name}
                 </span>
                 {isMe && (
-                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                    You
-                  </span>
+                  <span className="chip border-ink bg-ink text-white">You</span>
                 )}
               </div>
-              <ul className="mt-3 flex flex-col gap-2">
+              <ul className="mt-2 flex flex-col gap-1.5 pl-9">
                 {memberTasks.length === 0 && (
-                  <li className="text-sm text-slate-500">No tasks assigned.</li>
+                  <li className="text-[13px] text-muted">No tasks assigned.</li>
                 )}
                 {memberTasks.map((task) => (
                   <li
                     key={task.id}
                     className={
                       task.changed
-                        ? "rounded-md border border-emerald-300 bg-emerald-50 p-2"
-                        : "rounded-md border border-slate-200 bg-slate-50 p-2"
+                        ? "rounded-inner border border-ok-line bg-ok-soft px-2.5 py-2"
+                        : "rounded-inner border border-transparent bg-sunken px-2.5 py-2"
                     }
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-slate-900">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[13px] font-semibold leading-snug text-ink">
                         {task.title}
                       </span>
                       {task.changed && (
-                        <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-medium text-white">
+                        <span className="chip chip-solid-ok">
+                          <CheckIcon />
                           Updated
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-slate-600">{task.detail}</p>
+                    <p className="mt-0.5 text-xs leading-snug text-muted">
+                      {task.detail}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -905,9 +1102,11 @@ function TaskBoard({
 }
 
 function IssueForm({
+  who,
   memberName: name,
   onSubmit,
 }: {
+  who: MemberId;
   memberName: string;
   onSubmit: (text: string) => void;
 }) {
@@ -916,45 +1115,54 @@ function IssueForm({
 
   return (
     <form
-      className="rounded-lg border border-slate-200 bg-white p-4"
+      className="card p-4"
       onSubmit={(event) => {
         event.preventDefault();
         if (trimmed) onSubmit(trimmed);
       }}
     >
-      <label
-        htmlFor="issue-text"
-        className="text-sm font-semibold text-slate-900"
-      >
-        {name}, is something not working in your team?
-      </label>
-      <p className="mt-1 text-xs text-slate-600">
-        The AI facilitator treats this as your perspective, not as a fact about
-        your teammates.
-      </p>
-      <textarea
-        id="issue-text"
-        rows={3}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        className="mt-3 w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-      />
-      <button
-        type="submit"
-        disabled={!trimmed}
-        className="mt-3 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-      >
-        Raise issue with the team
-      </button>
+      <div className="flex gap-3">
+        <Avatar who={who} />
+        <div className="min-w-0 flex-1">
+          <label
+            htmlFor="issue-text"
+            className="text-[15px] font-bold leading-snug text-ink"
+          >
+            {name}, is something not working in your team?
+          </label>
+          <p className="mt-0.5 text-[13px] leading-snug text-muted">
+            The AI facilitator treats this as your perspective, not as a fact
+            about your teammates.
+          </p>
+          <textarea
+            id="issue-text"
+            rows={3}
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            className="field mt-3"
+          />
+          <div className="mt-3 flex justify-end">
+            <button
+              type="submit"
+              disabled={!trimmed}
+              className="btn btn-primary w-full sm:w-auto"
+            >
+              Raise issue with the team
+            </button>
+          </div>
+        </div>
+      </div>
     </form>
   );
 }
 
 function SharedSummary({ proposal }: { proposal: Proposal }) {
   return (
-    <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3">
-      <p className="text-sm text-slate-800">{proposal.teamSummary}</p>
-      <p className="mt-2 text-sm text-slate-800">{SUPPORT_STATUS_LINE}</p>
+    <div className="mt-3 rounded-inner border border-teacher-line bg-surface p-3">
+      <p className="text-sm leading-relaxed text-ink">{proposal.teamSummary}</p>
+      <p className="mt-2 text-sm leading-relaxed text-ink-2">
+        {SUPPORT_STATUS_LINE}
+      </p>
     </div>
   );
 }
@@ -971,28 +1179,39 @@ function SupportRequest({
   return (
     <section
       aria-labelledby="support-heading"
-      className="rounded-lg border border-violet-200 bg-white p-4"
+      className="rounded-card border border-teacher-line bg-teacher-soft p-4"
     >
-      <h2 id="support-heading" className="text-sm font-semibold text-slate-900">
-        {requested
-          ? "Support requested"
-          : "Stuck? Ask your teacher for support"}
-      </h2>
-      <p className="mt-1 text-xs text-slate-600">
-        {requested
-          ? "Your teacher sees only this summary. No names, no quotes, no private messages."
-          : "This is everything your teacher will see. No names, no quotes, no private messages."}
-      </p>
-      <SharedSummary proposal={proposal} />
-      {!requested && (
-        <button
-          type="button"
-          onClick={onRequest}
-          className="mt-3 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
-        >
-          Share this and ask for support
-        </button>
-      )}
+      <div className="flex gap-3">
+        <Avatar who="teacher" small />
+        <div className="min-w-0 flex-1">
+          <h2
+            id="support-heading"
+            className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-ink"
+          >
+            {requested && (
+              <CheckIcon className="h-4 w-4 shrink-0 text-teacher" />
+            )}
+            {requested
+              ? "Support requested"
+              : "Stuck? Ask your teacher for support"}
+          </h2>
+          <p className="mt-0.5 text-[13px] leading-snug text-ink-2">
+            {requested
+              ? "Your teacher sees only this summary. No names, no quotes, no private messages."
+              : "This is everything your teacher will see. No names, no quotes, no private messages."}
+          </p>
+          <SharedSummary proposal={proposal} />
+          {!requested && (
+            <button
+              type="button"
+              onClick={onRequest}
+              className="btn btn-teacher mt-3 w-full sm:w-auto"
+            >
+              Share this and ask for support
+            </button>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
@@ -1009,10 +1228,15 @@ function TeacherView({
 
   if (!state.supportRequested || !proposal) {
     return (
-      <main className="rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="text-lg font-semibold text-slate-900">Teacher view</h2>
-        <p className="mt-2 text-sm text-slate-600">No team needs support.</p>
-        <p className="mt-1 text-xs text-slate-500">
+      <main className="card p-5 sm:p-6">
+        <h2 className="text-lg font-bold tracking-tight text-ink">
+          Teacher view
+        </h2>
+        <p className="mt-2 flex items-center gap-2 text-sm font-medium text-ink-2">
+          <CheckIcon className="h-4 w-4 text-ok" />
+          No team needs support.
+        </p>
+        <p className="mt-1 text-xs leading-snug text-muted">
           You only see what a team chooses to share. Private conversations are
           never shown here.
         </p>
@@ -1021,30 +1245,40 @@ function TeacherView({
   }
 
   return (
-    <main className="rounded-lg border border-violet-200 bg-white p-6">
-      <h2 className="text-lg font-semibold text-slate-900">Teacher view</h2>
-      <p className="mt-1 text-xs text-slate-500">
+    <main className="rounded-card border border-teacher-line bg-surface p-5 shadow-card sm:p-6">
+      <h2 className="text-lg font-bold tracking-tight text-ink">
+        Teacher view
+      </h2>
+      <p className="mt-1 text-xs leading-snug text-muted">
         You only see what a team chooses to share. Private conversations are
         never shown here.
       </p>
 
-      <h3 className="mt-5 text-sm font-semibold text-slate-900">
-        {TEAM_NAME} asked for support
-      </h3>
-      <SharedSummary proposal={proposal} />
+      <div className="mt-4 rounded-card border border-teacher-line bg-teacher-soft p-4">
+        <h3 className="flex flex-wrap items-center gap-2 text-sm font-bold text-teacher-strong">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 shrink-0 rounded-full bg-teacher"
+          />
+          {TEAM_NAME} asked for support
+        </h3>
+        <SharedSummary proposal={proposal} />
 
-      {proposal.status === "applied" && (
-        <p className="mt-3 text-sm font-medium text-emerald-800">
-          Update: the team has since reached an agreement.
-        </p>
-      )}
+        {proposal.status === "applied" && (
+          <p className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-ok-strong">
+            <CheckIcon className="h-4 w-4" />
+            Update: the team has since reached an agreement.
+          </p>
+        )}
+      </div>
 
       {state.teacherGuidance ? (
         <div className="mt-5">
-          <h3 className="text-sm font-semibold text-slate-900">
+          <h3 className="flex items-center gap-1.5 text-sm font-bold text-ink">
+            <CheckIcon className="h-4 w-4 text-ok" />
             Sent to the team
           </h3>
-          <p className="mt-2 rounded-md border border-violet-200 bg-violet-50 p-3 text-sm text-violet-950">
+          <p className="mt-2 rounded-inner border border-teacher-line bg-teacher-soft p-3 text-[15px] leading-relaxed text-ink">
             {state.teacherGuidance}
           </p>
         </div>
@@ -1056,10 +1290,10 @@ function TeacherView({
             if (draft.trim()) onSend(draft);
           }}
         >
-          <h3 className="text-sm font-semibold text-slate-900">
+          <h3 className="text-sm font-bold text-ink">
             Send one piece of guidance
           </h3>
-          <p className="mt-1 text-xs text-slate-600">
+          <p className="mt-1 text-[13px] leading-snug text-muted">
             AI-suggested starting points. Pick one, edit it, or write your own.
             You decide what is sent.
           </p>
@@ -1072,18 +1306,28 @@ function TeacherView({
                   onClick={() => setDraft(option)}
                   className={
                     draft === option
-                      ? "w-full rounded-md border-2 border-violet-500 bg-violet-50 p-3 text-left text-sm text-slate-900"
-                      : "w-full rounded-md border border-slate-200 bg-white p-3 text-left text-sm text-slate-800 hover:bg-slate-50"
+                      ? "flex w-full items-start gap-2.5 rounded-inner border-2 border-teacher bg-teacher-soft p-3 text-left text-sm leading-snug text-ink"
+                      : "flex w-full items-start gap-2.5 rounded-inner border-2 border-line bg-surface p-3 text-left text-sm leading-snug text-ink-2 hover:border-line-strong hover:bg-sunken"
                   }
                 >
-                  {option}
+                  <span
+                    aria-hidden="true"
+                    className={
+                      draft === option
+                        ? "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-teacher text-white"
+                        : "mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 border-line-strong"
+                    }
+                  >
+                    {draft === option && <CheckIcon className="h-3 w-3" />}
+                  </span>
+                  <span>{option}</span>
                 </button>
               </li>
             ))}
           </ul>
           <label
             htmlFor="guidance-draft"
-            className="mt-4 block text-sm font-medium text-slate-900"
+            className="mt-4 block text-sm font-semibold text-ink"
           >
             Message to the team
           </label>
@@ -1093,12 +1337,12 @@ function TeacherView({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Pick a suggestion above or write your own."
-            className="mt-2 w-full rounded-md border border-slate-300 p-2 text-sm text-slate-900 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200"
+            className="field mt-2"
           />
           <button
             type="submit"
             disabled={!draft.trim()}
-            className="mt-3 rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="btn btn-teacher mt-3 w-full sm:w-auto"
           >
             Send to the team
           </button>
